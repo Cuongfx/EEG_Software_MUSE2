@@ -288,6 +288,10 @@ The active software should be run from `main.py`, not from archived files.
 
 ## Attribution Note
 
-The current `Focus Game` was rebuilt from the bundled local N-back game files that were previously stored in the project.
+`Focus Game` is based on the original `N-Back-Game` project by `danghoanganh36`:
+
+- Source repository: [danghoanganh36/N-Back-Game](https://github.com/danghoanganh36/N-Back-Game)
+
+The version in this repository has been integrated and adapted for the `EEG Analyse` software, including the current launcher, examiner setup workflow, and project-specific data/recording hooks.
 
 I could not verify a reliable original upstream owner from the available local files because there was no clear author header, license file, or verified upstream repository link in the archived source. Because of that, this README avoids assigning ownership incorrectly.

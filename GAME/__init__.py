@@ -1,3 +1,3 @@
-from .registry import GameDefinition, GameRegistry
+from .registry import ExaminerPreview, GameDefinition, GameRegistry
 
-__all__ = ["GameDefinition", "GameRegistry"]
+__all__ = ["ExaminerPreview", "GameDefinition", "GameRegistry"]

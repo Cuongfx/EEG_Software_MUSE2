@@ -3,8 +3,16 @@ from __future__ import annotations
 import subprocess
 import sys
 import os
+import json
 from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass(frozen=True)
+class ExaminerPreview:
+    heading: str
+    subtitle: str
+    highlights: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -14,8 +22,10 @@ class GameDefinition:
     description: str
     module_path: Path
     module_name: str
+    supported_languages: tuple[str, ...] = ("en", "de", "vi")
     owner: str | None = None
     source: str | None = None
+    examiner_preview: dict[str, ExaminerPreview] | None = None
 
 
 class GameRegistry:
@@ -29,10 +39,18 @@ class GameRegistry:
     def get(self, game_id: str) -> GameDefinition:
         return self.games[game_id]
 
-    def launch(self, game_id: str) -> subprocess.Popen[str]:
+    def launch(
+        self,
+        game_id: str,
+        language_code: str = "en",
+        examiner_setup: dict[str, object] | None = None,
+    ) -> subprocess.Popen[str]:
         game = self.get(game_id)
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
+        env["EEG_GAME_LANGUAGE"] = language_code
+        if examiner_setup is not None:
+            env["EEG_GAME_SESSION_JSON"] = json.dumps(examiner_setup)
         return subprocess.Popen(
             [sys.executable, "-m", game.module_name],
             cwd=str(self.project_root),
@@ -53,7 +71,37 @@ class GameRegistry:
                 description="Launch the bundled focus task in a separate game window.",
                 module_path=n_back_path,
                 module_name="GAME.n_back.main",
+                supported_languages=("en", "de", "vi"),
                 owner=None,
-                source="Bundled locally in GAME/n_back. No verifiable upstream author metadata was found in the provided files.",
-            )
+                source="Based on danghoanganh36/N-Back-Game: https://github.com/danghoanganh36/N-Back-Game",
+                examiner_preview={
+                    "en": ExaminerPreview(
+                        heading="Examiner Control",
+                        subtitle="Fill in participant details and define the Relax, Break, and Game session order before the participant starts.",
+                        highlights=(
+                            "Participant name, ID, age, and note fields",
+                            "Session planner for Relax, Break, and Game order",
+                            "Language selection and confirmation before launch",
+                        ),
+                    ),
+                    "de": ExaminerPreview(
+                        heading="Leitersteuerung",
+                        subtitle="Bitte Teilnehmerdaten eingeben und die Reihenfolge von Entspannung, Pause und Spiel festlegen, bevor der Teilnehmer startet.",
+                        highlights=(
+                            "Felder fuer Name, ID, Alter und Notiz",
+                            "Sitzungsplaner fuer Entspannung, Pause und Spiel",
+                            "Sprachauswahl und Bestaetigung vor dem Start",
+                        ),
+                    ),
+                    "vi": ExaminerPreview(
+                        heading="Điều khiển Giám sát",
+                        subtitle="Nhập thông tin người tham gia và sắp xếp thứ tự Thư giãn, Nghỉ và Game trước khi người chơi bắt đầu.",
+                        highlights=(
+                            "Trường tên, ID, tuổi và ghi chú",
+                            "Bộ lập kế hoạch cho Thư giãn, Nghỉ và Game",
+                            "Chọn ngôn ngữ và xác nhận trước khi bắt đầu",
+                        ),
+                    ),
+                },
+            ),
         }

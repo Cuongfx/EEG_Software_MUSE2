@@ -5,7 +5,7 @@ from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-HEADERS = ["Name", "ID", "Age", "score", "Note"]
+HEADERS = ["Name", "ID", "Age", "score", "Note", "Consent Accepted"]
 SHEET_NAME = "Master Control"
 XML_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -64,8 +64,9 @@ def read_master_control_rows(path: Path) -> list[list[str]]:
 
     if not rows:
         return [HEADERS.copy()]
+    rows = [(row + [""] * (len(HEADERS) - len(row)))[: len(HEADERS)] for row in rows]
     if rows[0] != HEADERS:
-        rows.insert(0, HEADERS.copy())
+        rows[0] = HEADERS.copy()
     return rows
 
 
@@ -110,7 +111,7 @@ def _build_workbook_xml() -> bytes:
 def _build_worksheet_xml(rows: list[list[str]]) -> bytes:
     worksheet = ET.Element("worksheet", {"xmlns": XML_NS})
     if rows:
-        ET.SubElement(worksheet, "dimension", {"ref": f"A1:E{len(rows)}"})
+        ET.SubElement(worksheet, "dimension", {"ref": f"A1:{_column_letter(len(HEADERS))}{len(rows)}"})
     sheet_data = ET.SubElement(worksheet, "sheetData")
 
     for row_index, row_values in enumerate(rows, start=1):

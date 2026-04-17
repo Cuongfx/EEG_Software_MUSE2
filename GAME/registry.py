@@ -22,7 +22,7 @@ class GameDefinition:
     description: str
     module_path: Path
     module_name: str
-    supported_languages: tuple[str, ...] = ("en", "de", "vi")
+    supported_languages: tuple[str, ...] = ("en", "de", "vi", "zh", "ar")
     owner: str | None = None
     source: str | None = None
     examiner_preview: dict[str, ExaminerPreview] | None = None
@@ -78,7 +78,7 @@ class GameRegistry:
                 description="Launch the bundled focus task in a separate game window.",
                 module_path=n_back_path,
                 module_name="GAME.n_back.main",
-                supported_languages=("en", "de", "vi"),
+                supported_languages=("en", "de", "vi", "zh", "ar"),
                 owner=None,
                 source="Based on danghoanganh36/N-Back-Game: https://github.com/danghoanganh36/N-Back-Game",
                 examiner_preview={
@@ -107,6 +107,24 @@ class GameRegistry:
                             "Trường tên, ID, tuổi và ghi chú",
                             "Bộ lập kế hoạch cho Thư giãn, Nghỉ và Game",
                             "Chọn ngôn ngữ và xác nhận trước khi bắt đầu",
+                        ),
+                    ),
+                    "zh": ExaminerPreview(
+                        heading="监考控制",
+                        subtitle="请先填写参与者信息，并在参与者开始前设置放松、休息和游戏阶段顺序。",
+                        highlights=(
+                            "参与者姓名、ID、年龄和备注字段",
+                            "放松、休息和游戏的阶段顺序设置",
+                            "开始前选择语言并确认会话",
+                        ),
+                    ),
+                    "ar": ExaminerPreview(
+                        heading="تحكم المُشرف",
+                        subtitle="يرجى إدخال بيانات المشارك وتحديد ترتيب جلسات الاسترخاء والاستراحة واللعبة قبل أن يبدأ المشارك.",
+                        highlights=(
+                            "حقول الاسم والمعرف والعمر والملاحظة",
+                            "مخطط الجلسة لترتيب الاسترخاء والاستراحة واللعبة",
+                            "اختيار اللغة وتأكيد الجلسة قبل البدء",
                         ),
                     ),
                 },

@@ -1,297 +1,104 @@
 # EEG Analyse
 
-`EEG Analyse` is a desktop application for working with a Muse headset, viewing live EEG and PPG signals, recording data, and running an examiner-controlled cognitive task called `Focus Game`.
+`EEG Analyse` is a desktop software for Muse-based EEG/PPG acquisition, live signal visualization, recording, and an examiner-controlled N-back task (`Focus Game`).
 
-The software is organized into three active folders:
+## Main Features
 
-- `UI` for the desktop interface
-- `EEG_APP` for device connection, streaming, processing, and recording
-- `GAME` for the game launcher and modular game implementations
-
-`main.py` is the only file you need to run.
-
-## Features
-
-- Connect to a Muse device from inside the software
-- Start the internal `muselsl` stream with PPG enabled
-- View live EEG and PPG plots
-- Record EEG and PPG data to CSV
-- Launch `Focus Game` from the app UI
-- Run examiner-controlled session blocks with `Relax`, `Game`, and `Break`
-- Save participant and score information to `Master_Control.xlsx`
+- Connect to a Muse device directly from the app
+- Start Muse EEG/PPG stream internally
+- Display live EEG and PPG plots
+- Record EEG and PPG to CSV
+- Launch `Focus Game` with examiner setup
+- Save experiment outputs and participant metadata
 
 ## Project Structure
 
 ```text
 EEG/
-├── UI/
-│   ├── app.py
-│   ├── dialogs.py
-│   ├── main_window.py
-│   └── widgets.py
-├── EEG_APP/
-│   ├── agent.py
-│   ├── config.py
-│   ├── device.py
-│   ├── filters.py
-│   ├── processing.py
-│   ├── state.py
-│   ├── storage.py
-│   └── streaming.py
-├── GAME/
-│   ├── registry.py
-│   └── n_back/
-│       ├── config.py
-│       ├── data.py
-│       ├── game.py
-│       ├── main.py
-│       ├── master_control.py
-│       ├── models.py
-│       ├── participant-task.csv
-│       ├── rules.txt
-│       └── result/
-├── Archieve/
-├── .venv/
-└── main.py
+├── UI/                  # Main desktop UI (PyQt6)
+├── EEG_APP/             # Device, streaming, processing, storage
+├── GAME/                # Game registry and game modules
+│   └── n_back/          # Focus Game implementation
+├── Archieve/            # Legacy/old scripts
+└── main.py              # App entry point
 ```
-
-## Architecture Rules
-
-The project includes an internal architecture/rules module in [EEG_APP/agent.py](/Users/manhcuongfx/Desktop/EEG/EEG_APP/agent.py:1).
-
-Design rules:
-
-- `UI` handles windows, dialogs, widgets, layout, and user interaction only.
-- `EEG_APP` handles Muse discovery, streaming, EEG/PPG processing, device control, and file saving.
-- `GAME` handles the game registry and one folder per game.
-- Each game should stay modular so it can be changed independently later.
-- `main.py` should stay thin and only launch the app.
 
 ## Requirements
 
-Typical environment:
-
-- Python 3.12
+- Python 3.12 (recommended)
 - Muse headset
 - `muselsl`
-- PyQt6 for the main application UI
-- Tkinter for the current `Focus Game` window
+- PyQt6
+- Tkinter (for game window)
 
-If you use the provided virtual environment, activate it before running the software.
+## Run
 
-## Run The Software
-
-From the project root:
+From project root:
 
 ```bash
 python main.py
 ```
 
-You do not need to manually start `muselsl stream --ppg` in another terminal. The software starts and manages the Muse stream internally after you connect a device.
+## UI Overview
 
-## Main UI Workflow
+### Analyse Tab
 
-When the app opens, you will see the main `EEG Analyse` window.
+The Analyse tab is for real-time monitoring and recording.
 
-Typical workflow:
+![Analyse UI](./Analyse.png)
+
+How to use:
 
 1. Click `Connect to Device`
-2. Choose the Muse device from the connection dialog
-3. Wait for the stream to connect
-4. Watch the live EEG and PPG plots
-5. Click `Record Data` if you want to manually record a session
-6. Click `Stop Recording` to save the current EEG and PPG data
-7. Click `Disconnect Device` when finished
+2. Select your Muse headset
+3. Wait for stream connection
+4. Monitor live EEG/PPG plots
+5. Click `Record Data` to start recording
+6. Click `Stop Recording` to save
 
-The UI also includes:
+### Experiment Set-Up Tab
 
-- a game selector dropdown
-- a button to open the selected game in a separate window
-- device status information
-- battery status if available from the device/backend
-- session log messages
+The Experiment Set-Up tab is for game launch and examiner configuration.
 
-## Recording Behavior
+![Experiment Set-Up UI](./Experiment_Set_up.png)
 
-There are two main ways recording can happen:
+How to use:
 
-### Manual recording
+1. Select `Focus Game`
+2. Choose game language
+3. Enter participant fields (`Name`, `ID`, `Age`, `N`, `Note`)
+4. Configure stage order and duration (`Relax`, `Break`, `Game`)
+5. Launch game and run the session
 
-- Connect a Muse device
-- Click `Record Data`
-- The app records EEG and PPG data
-- Click `Stop Recording` to save the files
+## Focus Game (N-back)
 
-### Game-linked recording
+In `Focus Game`, the examiner sets `N`. The player must always remember the newest `N` letters and press `SPACE` only when the current letter matches the one from `N` steps earlier.
 
-- Connect a Muse device
-- Open `Focus Game`
-- The examiner confirms the block plan
-- The participant clicks `Start`
-- Recording starts at the beginning of the block
-- Recording stops automatically after the full block finishes
+Example (`N = 3`):
 
-Recorded files are saved in [EEG_APP/results](/Users/manhcuongfx/Desktop/EEG/EEG_APP/results).
+- `A, K, D, A` -> press `SPACE` on the last `A`
+- `A, K, D, C` -> do not press
+- then memory slides to `K, D, C`, and the rule continues
 
-Typical filenames:
+## Output Files
 
-- `eeg_data_YYYYMMDD_HHMMSS.csv`
-- `ppg_data_YYYYMMDD_HHMMSS.csv`
+- EEG/PPG recordings: `EEG_APP/results/`
+- Game result CSV: `GAME/n_back/result/`
+- Master control workbook: `GAME/n_back/result/Master_Control.xlsx`
 
-## Muse Device Connection
+## License and Citation
 
-The software scans for Muse devices and starts the internal `muselsl` stream with PPG.
+This software is provided for research and academic use.
 
-Notes:
+If you use this software, you **must cite the author** in your publication, report, thesis, or project documentation.
 
-- The app supports different Muse identifier styles, including UUID-style values seen on macOS and classic MAC-style addresses.
-- The app includes retry and reconnect logic around the `muselsl` subprocess and LSL stream reads.
-- If the stream drops temporarily, the software attempts to recover instead of failing immediately.
+Recommended citation:
 
-## Focus Game
+`Pham, M. C. EEG Analyse Software (Muse EEG/PPG acquisition and Focus Game), RPTU Kaiserslautern-Landau.`
 
-`Focus Game` is the currently available game in the software. Internally it lives in the `GAME/n_back` module, but the user-facing name is `Focus Game`.
+## Author
 
-When the game is opened, two windows appear:
-
-- a participant-facing game window
-- a separate `Examiner Control` window
-
-### Examiner Control
-
-The examiner enters:
-
-- `Name`
-- `ID`
-- `Age`
-- `Note`
-
-The examiner also sets the session block plan:
-
-- `Relax`
-- `Game`
-- `Break`
-
-For each session, the examiner chooses:
-
-- order in the block
-- duration in minutes
-
-The examiner then clicks `Confirm Session`.
-
-### Participant Flow
-
-Before confirmation, the participant window shows:
-
-- `Waiting for Examiner...`
-
-After the examiner confirms, the participant sees a `Start` button.
-
-When the participant clicks `Start`:
-
-- the full block begins
-- recording starts
-- the block follows the examiner’s order exactly
-
-Example:
-
-- if the examiner sets `Relax -> Game -> Break`
-- the participant will go through `Relax`, then `Game`, then `Break`
-
-### Session Messages
-
-During guided stages, the participant sees:
-
-- `Please relax untill you hear the sound`
-- `Please Break untill you hear the sound`
-
-For the game stage:
-
-- an introduction is shown first
-- the participant presses `SPACE` to move through the game instructions
-- after the final instruction page, the actual game begins
-
-### Sounds
-
-After each session ends, the app plays a double `bip bip` style system bell:
-
-- after `Relax`
-- after `Game`
-- after `Break`
-
-### End Of Block
-
-When the full block is finished:
-
-- recording stops automatically
-- the participant window shows:
-  - `Congratulation, the Block is ended`
-  - `The Experiment is finished. Thank you for your attention!`
-
-## Focus Game Outputs
-
-### Session CSV
-
-The game exports a CSV file into [GAME/n_back/result](/Users/manhcuongfx/Desktop/EEG/GAME/n_back/result).
-
-Filename format:
-
-```text
-(participant_id)_(YYYY-MM-DD)_(arrangement).csv
-```
-
-Arrangement code:
-
-- `A` = Relax
-- `B` = Game
-- `C` = Break
-
-Examples:
-
-- `10_2026-04-13_ABC.csv`
-- `13_2026-04-13_CBA.csv`
-
-### Master Control Workbook
-
-The examiner summary is appended to:
-
-[GAME/n_back/result/Master_Control.xlsx](/Users/manhcuongfx/Desktop/EEG/GAME/n_back/result/Master_Control.xlsx)
-
-Each completed game appends a new row. The file is not overwritten.
-
-Columns:
-
-- `Name`
-- `ID`
-- `Age`
-- `score`
-- `Note`
-
-## Participant Task Data
-
-The game reads participant task definitions from:
-
-[GAME/n_back/participant-task.csv](/Users/manhcuongfx/Desktop/EEG/GAME/n_back/participant-task.csv)
-
-If a participant ID is not found there, the software generates a fallback block plan instead of stopping with an error.
-
-## Archived Files
-
-`Archieve/` is kept for legacy reference only.
-
-Examples:
-
-- old Muse scripts
-- older game source
-
-The active software should be run from `main.py`, not from archived files.
-
-## Attribution Note
-
-`Focus Game` is based on the original `N-Back-Game` project by `danghoanganh36`:
-
-- Source repository: [danghoanganh36/N-Back-Game](https://github.com/danghoanganh36/N-Back-Game)
-
-The version in this repository has been integrated and adapted for the `EEG Analyse` software, including the current launcher, examiner setup workflow, and project-specific data/recording hooks.
-
-I could not verify a reliable original upstream owner from the available local files because there was no clear author header, license file, or verified upstream repository link in the archived source. Because of that, this README avoids assigning ownership incorrectly.
+👨‍💻 **Author**  
+**Manh Cuong Pham**  
+📧 pmcuong1996@icloud.com  
+💼 PhD Candidate at RPTU Kaiserslautern-Landau

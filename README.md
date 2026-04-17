@@ -1,14 +1,14 @@
 # EEG Analyse
 
-`EEG Analyse` is a desktop software for Muse-based EEG/PPG acquisition, live signal visualization and recording
+`EEG Analyse` is a desktop software for Muse-based EEG/PPG acquisition, live signal visualization, recording, and set up Game.
 
 ## Main Features
 
-- Connect to a Muse device directly from the app
-- Start Muse EEG/PPG stream internally
+- Activate the Muse 2 by pressing the button on the device. The LED should start flashing.
+- Start the software and click the Connect button to search for the Muse device.
 - Display live EEG and PPG plots
 - Record EEG and PPG to CSV
-- Launch `Focus Game` with examiner setup
+- Launch `Game` with examiner setup
 - Save experiment outputs and participant metadata
 
 ## Project Structure
@@ -64,15 +64,17 @@ The Experiment Set-Up tab is for game launch and examiner configuration.
 
 How to use:
 
-1. Select `Focus Game`
+1. Select `Game`
 2. Choose game language
 3. Enter participant fields (`Name`, `ID`, `Age`, `N`, `Note`)
-4. Configure stage order and duration (`Relax`, `Break`, `Game`)
+4. Configure stage order and duration, for example (`Relax`, `Break`, `Game`)
 5. Launch game and run the session
 
 ## Focus Game (N-back)
 
 In `Focus Game`, the examiner sets `N`. The player must always remember the newest `N` letters and press `SPACE` only when the current letter matches the one from `N` steps earlier.
+
+`N_Back_game` is based on: [danghoanganh36/N-Back-Game](https://github.com/danghoanganh36/N-Back-Game).
 
 Example (`N = 3`):
 

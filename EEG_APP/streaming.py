@@ -55,6 +55,7 @@ class MuseStreamController:
         self.eeg_channel_labels: list[str] = []
         self._eeg_mapping_logged = False
         self._last_recovery_attempt = 0.0
+        self._save_context: dict[str, str] = {"user_id": "unknown", "session_label": "ABC"}
 
     def start(self) -> None:
         if self.running:
@@ -95,13 +96,19 @@ class MuseStreamController:
         if not save:
             return None
 
-        saved_files = save_session_data(self.config, self.state)
+        saved_files = save_session_data(
+            self.config,
+            self.state,
+            user_id=self._save_context["user_id"],
+            session_label=self._save_context["session_label"],
+        )
         if saved_files is None:
             self._emit("No recorded data to save.")
         elif saved_files.ppg_path is not None:
             self._emit(f"Saved to {saved_files.eeg_path} and {saved_files.ppg_path}")
         else:
             self._emit(f"Saved to {saved_files.eeg_path}")
+        self.clear_save_context()
         return saved_files
 
     def start_recording(self) -> None:
@@ -113,14 +120,29 @@ class MuseStreamController:
         self._emit("Recording stopped.")
         if not save:
             return None
-        saved_files = save_session_data(self.config, self.state)
+        saved_files = save_session_data(
+            self.config,
+            self.state,
+            user_id=self._save_context["user_id"],
+            session_label=self._save_context["session_label"],
+        )
         if saved_files is None:
             self._emit("No recorded data to save.")
         elif saved_files.ppg_path is not None:
             self._emit(f"Saved to {saved_files.eeg_path} and {saved_files.ppg_path}")
         else:
             self._emit(f"Saved to {saved_files.eeg_path}")
+        self.clear_save_context()
         return saved_files
+
+    def set_save_context(self, *, user_id: str, session_label: str) -> None:
+        self._save_context = {
+            "user_id": str(user_id or "unknown"),
+            "session_label": str(session_label or "ABC"),
+        }
+
+    def clear_save_context(self) -> None:
+        self._save_context = {"user_id": "unknown", "session_label": "ABC"}
 
     def status(self) -> ControllerStatus:
         with self.state.data_lock:

@@ -44,6 +44,9 @@ class GameRegistry:
         game_id: str,
         language_code: str = "en",
         examiner_setup: dict[str, object] | None = None,
+        *,
+        demo_mode: bool = False,
+        demo_n_value: int | None = None,
     ) -> subprocess.Popen[str]:
         game = self.get(game_id)
         env = os.environ.copy()
@@ -51,6 +54,10 @@ class GameRegistry:
         env["EEG_GAME_LANGUAGE"] = language_code
         if examiner_setup is not None:
             env["EEG_GAME_SESSION_JSON"] = json.dumps(examiner_setup)
+        if demo_mode:
+            env["EEG_GAME_DEMO_MODE"] = "1"
+            if demo_n_value is not None:
+                env["EEG_GAME_DEMO_N"] = str(demo_n_value)
         return subprocess.Popen(
             [sys.executable, "-m", game.module_name],
             cwd=str(self.project_root),

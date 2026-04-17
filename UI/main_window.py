@@ -8,6 +8,7 @@ from pathlib import Path
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFrame,
     QGridLayout,
@@ -57,7 +58,6 @@ class ModernMuseWindow(QMainWindow):
             "tab_experiment": "Experiment Set-Up",
             "hero_title": "EEG Analyse",
             "hero_subtitle": "Designed by CuongFX",
-            "software_language": "Software Language",
             "idle": "Idle",
             "disconnected": "Disconnected",
             "connected": "Device Connected",
@@ -87,6 +87,7 @@ class ModernMuseWindow(QMainWindow):
             "games_title": "Games",
             "game_language_prefix": "Game language: {languages}",
             "start_game": "Start Game",
+            "play_demo": "Play Demo",
             "game_auto_note": "Starting a game will automatically begin recording if a device is already connected and recording is not active.",
             "session_log": "Session Log",
             "session_log_placeholder": "Connection events, recording state, and game launches appear here.",
@@ -96,7 +97,9 @@ class ModernMuseWindow(QMainWindow):
             "field_name": "Name",
             "field_id": "ID",
             "field_age": "Age",
+            "field_n_value": "N Value",
             "field_note": "Note",
+            "field_relax_audio": "Play alpha audio during Relax",
             "planner_title": "Session Planner",
             "planner_session": "Session",
             "planner_order": "Order",
@@ -120,6 +123,9 @@ class ModernMuseWindow(QMainWindow):
             "name_required": "Name is required.",
             "id_required": "ID is required.",
             "age_required": "Age is required.",
+            "n_value_required": "N value is required.",
+            "n_value_integer": "N value must be a whole number.",
+            "n_value_positive": "N value must be at least 1.",
             "order_whole_number": "{stage} order must be a whole number.",
             "duration_number": "{stage} duration must be a number.",
             "order_range": "{stage} order must be 1, 2, or 3.",
@@ -133,7 +139,6 @@ class ModernMuseWindow(QMainWindow):
             "tab_experiment": "Experiment-Setup",
             "hero_title": "EEG Analyse",
             "hero_subtitle": "Entwickelt von CuongFX",
-            "software_language": "Software-Sprache",
             "idle": "Leerlauf",
             "disconnected": "Getrennt",
             "connected": "Gerät verbunden",
@@ -163,6 +168,7 @@ class ModernMuseWindow(QMainWindow):
             "games_title": "Spiele",
             "game_language_prefix": "Spielsprache: {languages}",
             "start_game": "Spiel starten",
+            "play_demo": "Demo spielen",
             "game_auto_note": "Beim Start eines Spiels beginnt die Aufnahme automatisch, wenn bereits ein Gerät verbunden ist und noch nicht aufgenommen wird.",
             "session_log": "Sitzungsprotokoll",
             "session_log_placeholder": "Verbindungsereignisse, Aufnahmestatus und Spielstarts erscheinen hier.",
@@ -172,7 +178,9 @@ class ModernMuseWindow(QMainWindow):
             "field_name": "Name",
             "field_id": "ID",
             "field_age": "Alter",
+            "field_n_value": "N-Wert",
             "field_note": "Notiz",
+            "field_relax_audio": "Alpha-Audio waehrend Entspannung abspielen",
             "planner_title": "Sitzungsplaner",
             "planner_session": "Sitzung",
             "planner_order": "Reihenfolge",
@@ -196,6 +204,9 @@ class ModernMuseWindow(QMainWindow):
             "name_required": "Name ist erforderlich.",
             "id_required": "ID ist erforderlich.",
             "age_required": "Alter ist erforderlich.",
+            "n_value_required": "N-Wert ist erforderlich.",
+            "n_value_integer": "Der N-Wert muss eine ganze Zahl sein.",
+            "n_value_positive": "Der N-Wert muss mindestens 1 sein.",
             "order_whole_number": "Die Reihenfolge für {stage} muss eine ganze Zahl sein.",
             "duration_number": "Die Dauer für {stage} muss eine Zahl sein.",
             "order_range": "Die Reihenfolge für {stage} muss 1, 2 oder 3 sein.",
@@ -209,7 +220,6 @@ class ModernMuseWindow(QMainWindow):
             "tab_experiment": "Thiết lập thí nghiệm",
             "hero_title": "EEG Analyse",
             "hero_subtitle": "Thiết kế bởi CuongFX",
-            "software_language": "Ngôn ngữ phần mềm",
             "idle": "Chờ",
             "disconnected": "Ngắt kết nối",
             "connected": "Đã kết nối thiết bị",
@@ -239,6 +249,7 @@ class ModernMuseWindow(QMainWindow):
             "games_title": "Trò chơi",
             "game_language_prefix": "Ngôn ngữ game: {languages}",
             "start_game": "Bắt đầu game",
+            "play_demo": "Chạy demo",
             "game_auto_note": "Khi bắt đầu game, hệ thống sẽ tự ghi dữ liệu nếu thiết bị đã kết nối và chưa ghi.",
             "session_log": "Nhật ký phiên",
             "session_log_placeholder": "Sự kiện kết nối, trạng thái ghi và lần mở game sẽ xuất hiện tại đây.",
@@ -248,7 +259,9 @@ class ModernMuseWindow(QMainWindow):
             "field_name": "Tên",
             "field_id": "ID",
             "field_age": "Tuổi",
+            "field_n_value": "Giá trị N",
             "field_note": "Ghi chú",
+            "field_relax_audio": "Phát âm thanh alpha trong lúc Thư giãn",
             "planner_title": "Lập kế hoạch phiên",
             "planner_session": "Phiên",
             "planner_order": "Thứ tự",
@@ -272,6 +285,9 @@ class ModernMuseWindow(QMainWindow):
             "name_required": "Cần nhập tên.",
             "id_required": "Cần nhập ID.",
             "age_required": "Cần nhập tuổi.",
+            "n_value_required": "Cần nhập giá trị N.",
+            "n_value_integer": "Giá trị N phải là số nguyên.",
+            "n_value_positive": "Giá trị N phải lớn hơn hoặc bằng 1.",
             "order_whole_number": "Thứ tự của {stage} phải là số nguyên.",
             "duration_number": "Thời lượng của {stage} phải là số.",
             "order_range": "Thứ tự của {stage} phải là 1, 2 hoặc 3.",
@@ -323,9 +339,9 @@ class ModernMuseWindow(QMainWindow):
             "vi": "Tiếng Việt",
         }
         self.software_languages = {
-            "en": "English",
-            "de": "Deutsch",
-            "vi": "Tiếng Việt",
+            "en": ("🇬🇧 English", "English"),
+            "de": ("🇩🇪 Deutsch", "Deutsch"),
+            "vi": ("🇻🇳 Tiếng Việt", "Tiếng Việt"),
         }
         self.software_language_code = "en"
 
@@ -365,13 +381,13 @@ class ModernMuseWindow(QMainWindow):
             self.software_language_combo.blockSignals(False)
             self.hero_title_label.setText(self._ui("hero_title"))
             self.hero_subtitle_label.setText(self._ui("hero_subtitle"))
-            self.software_language_label.setText(self._ui("software_language"))
         if hasattr(self, "device_card_title"):
             self.device_card_title.setText(self._ui("device_title"))
             self.connect_button.setText(self._ui("connect_device"))
             self.disconnect_button.setText(self._ui("disconnect_device"))
             self.games_card_title.setText(self._ui("games_title"))
             self.launch_game_button.setText(self._ui("start_game"))
+            self.play_demo_button.setText(self._ui("play_demo"))
             self.game_auto_note_label.setText(self._ui("game_auto_note"))
             self.log_card_title.setText(self._ui("session_log"))
             self.log_output.setPlaceholderText(self._ui("session_log_placeholder"))
@@ -379,6 +395,7 @@ class ModernMuseWindow(QMainWindow):
             self.planner_title_label.setText(self._ui("planner_title"))
             for field_key, label in self.examiner_field_labels.items():
                 label.setText(self._ui(f"field_{field_key}"))
+            self.relax_audio_checkbox.setText(self._ui("field_relax_audio"))
             for header, key in zip(
                 self.planner_header_labels,
                 ("planner_session", "planner_order", "planner_duration"),
@@ -484,6 +501,12 @@ class ModernMuseWindow(QMainWindow):
                 font-size: 11px;
                 font-weight: 800;
             }
+            QCheckBox {
+                color: #334155;
+                font-size: 12px;
+                font-weight: 700;
+                spacing: 8px;
+            }
             QPushButton#PrimaryButton {
                 background: #0f766e;
                 color: white;
@@ -549,6 +572,23 @@ class ModernMuseWindow(QMainWindow):
             QComboBox::drop-down {
                 border: none;
                 width: 28px;
+            }
+            QComboBox#SoftwareLanguageCombo {
+                background: #d1fae5;
+                color: #064e3b;
+                border: 1px solid #99f6e4;
+                border-radius: 18px;
+                padding: 6px 14px;
+                font-size: 12px;
+                font-weight: 800;
+                min-height: 36px;
+            }
+            QComboBox#SoftwareLanguageCombo:hover {
+                background: #ccfbf1;
+                border: 1px solid #99f6e4;
+            }
+            QComboBox#SoftwareLanguageCombo::drop-down {
+                width: 24px;
             }
             QComboBox QAbstractItemView {
                 background: #fffdf9;
@@ -720,15 +760,13 @@ class ModernMuseWindow(QMainWindow):
         badge_row.addWidget(self.session_badge)
         badge_row.addWidget(self.recording_badge)
         badge_column.addLayout(badge_row)
-        self.software_language_label = QLabel(self._ui("software_language"))
-        self.software_language_label.setObjectName("HeroSubtitle")
-        self.software_language_label.setAlignment(Qt.AlignmentFlag.AlignRight)
         self.software_language_combo = QComboBox()
+        self.software_language_combo.setObjectName("SoftwareLanguageCombo")
         self.software_language_combo.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.software_language_combo.setMinimumWidth(150)
-        for language_code, language_name in self.software_languages.items():
-            self.software_language_combo.addItem(language_name, language_code)
-        badge_column.addWidget(self.software_language_label, alignment=Qt.AlignmentFlag.AlignRight)
+        self.software_language_combo.setFixedWidth(170)
+        for language_code, language_bundle in self.software_languages.items():
+            display_name, _native_name = language_bundle
+            self.software_language_combo.addItem(display_name, language_code)
         badge_column.addWidget(self.software_language_combo, alignment=Qt.AlignmentFlag.AlignRight)
         badge_column.addStretch(1)
 
@@ -873,6 +911,12 @@ class ModernMuseWindow(QMainWindow):
         self.launch_game_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
         self.launch_game_button.setFixedSize(170, 42)
         layout.addLayout(self._centered_row(self.launch_game_button))
+
+        self.play_demo_button = QPushButton(self._ui("play_demo"))
+        self.play_demo_button.setObjectName("SecondaryButton")
+        self.play_demo_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
+        self.play_demo_button.setFixedSize(170, 42)
+        layout.addLayout(self._centered_row(self.play_demo_button))
         layout.addSpacing(10)
 
         self.game_auto_note_label = QLabel(self._ui("game_auto_note"))
@@ -947,11 +991,6 @@ class ModernMuseWindow(QMainWindow):
         self.examiner_card_title.setObjectName("SectionTitle")
         layout.addWidget(self.examiner_card_title)
 
-        self.examiner_heading_label = QLabel()
-        self.examiner_heading_label.setObjectName("ExaminerHeading")
-        self.examiner_heading_label.setWordWrap(True)
-        layout.addWidget(self.examiner_heading_label)
-
         self.examiner_subtitle_label = QLabel()
         self.examiner_subtitle_label.setObjectName("ExaminerBody")
         self.examiner_subtitle_label.setWordWrap(True)
@@ -964,6 +1003,8 @@ class ModernMuseWindow(QMainWindow):
         self.examiner_name_input = QLineEdit()
         self.examiner_id_input = QLineEdit()
         self.examiner_age_input = QLineEdit()
+        self.examiner_n_value_input = QLineEdit("3")
+        self.examiner_n_value_input.setMaximumWidth(120)
         self.examiner_note_input = QTextEdit()
         self.examiner_note_input.setFixedHeight(88)
 
@@ -972,6 +1013,7 @@ class ModernMuseWindow(QMainWindow):
             ("name", self.examiner_name_input),
             ("id", self.examiner_id_input),
             ("age", self.examiner_age_input),
+            ("n_value", self.examiner_n_value_input),
             ("note", self.examiner_note_input),
         ]
         for row, (field_key, widget) in enumerate(form_fields):
@@ -982,6 +1024,9 @@ class ModernMuseWindow(QMainWindow):
             form_grid.addWidget(widget, row, 1)
         form_grid.setColumnStretch(1, 1)
         layout.addLayout(form_grid)
+
+        self.relax_audio_checkbox = QCheckBox(self._ui("field_relax_audio"))
+        layout.addWidget(self.relax_audio_checkbox)
 
         self.planner_title_label = QLabel(self._ui("planner_title"))
         self.planner_title_label.setObjectName("ExaminerHeading")
@@ -1034,6 +1079,7 @@ class ModernMuseWindow(QMainWindow):
         self.disconnect_button.clicked.connect(self._disconnect_async)
         self.record_button.clicked.connect(self._toggle_recording)
         self.launch_game_button.clicked.connect(self._launch_selected_game_async)
+        self.play_demo_button.clicked.connect(self._launch_demo_async)
         self.game_combo.currentIndexChanged.connect(self._update_selected_game_panels)
         self.game_language_combo.currentIndexChanged.connect(self._update_selected_game_panels)
         self.software_language_combo.currentIndexChanged.connect(self._handle_software_language_changed)
@@ -1132,6 +1178,7 @@ class ModernMuseWindow(QMainWindow):
             if saved_files is not None:
                 self._append_log("Manual recording session saved.")
         else:
+            self.controller.set_save_context(**self._current_save_context())
             self.controller.start_recording()
 
     def _launch_selected_game_async(self) -> None:
@@ -1142,6 +1189,7 @@ class ModernMuseWindow(QMainWindow):
         examiner_setup = self._collect_examiner_setup()
         if examiner_setup is None:
             return
+        self.controller.set_save_context(**self._save_context_from_examiner_setup(examiner_setup))
 
         status = self.controller.status()
         self.pending_game_auto_record = False
@@ -1153,21 +1201,56 @@ class ModernMuseWindow(QMainWindow):
             )
 
         self.launch_game_button.setEnabled(False)
+        self.play_demo_button.setEnabled(False)
         threading.Thread(
             target=self._launch_game_worker,
-            args=(game_id, language_code, examiner_setup),
+            args=(game_id, language_code, examiner_setup, False, None),
             daemon=True,
         ).start()
 
-    def _launch_game_worker(self, game_id: str, language_code: str, examiner_setup: dict[str, object]) -> None:
-        try:
-            process = self.game_registry.launch(game_id, language_code=language_code, examiner_setup=examiner_setup)
-            self.game_launch_completed.emit(game_id, process)
-        except Exception as exc:
-            self.game_launch_completed.emit(game_id, str(exc))
+    def _launch_demo_async(self) -> None:
+        game_id = self.game_combo.currentData()
+        if game_id is None:
+            return
+        language_code = self.game_language_combo.currentData() or "en"
+        demo_n_value = self._collect_demo_n_value()
+        if demo_n_value is None:
+            return
 
-    def _finish_game_launch(self, game_id: str, result) -> None:
+        self.pending_game_auto_record = False
+        self.launch_game_button.setEnabled(False)
+        self.play_demo_button.setEnabled(False)
+        threading.Thread(
+            target=self._launch_game_worker,
+            args=(game_id, language_code, None, True, demo_n_value),
+            daemon=True,
+        ).start()
+
+    def _launch_game_worker(
+        self,
+        game_id: str,
+        language_code: str,
+        examiner_setup: dict[str, object] | None,
+        demo_mode: bool,
+        demo_n_value: int | None,
+    ) -> None:
+        try:
+            process = self.game_registry.launch(
+                game_id,
+                language_code=language_code,
+                examiner_setup=examiner_setup,
+                demo_mode=demo_mode,
+                demo_n_value=demo_n_value,
+            )
+            self.game_launch_completed.emit({"game_id": game_id, "demo_mode": demo_mode}, process)
+        except Exception as exc:
+            self.game_launch_completed.emit({"game_id": game_id, "demo_mode": demo_mode}, str(exc))
+
+    def _finish_game_launch(self, launch_info, result) -> None:
+        game_id = launch_info["game_id"]
+        demo_mode = bool(launch_info.get("demo_mode"))
         self.launch_game_button.setEnabled(True)
+        self.play_demo_button.setEnabled(True)
         if isinstance(result, str):
             if self.pending_game_auto_record and self.controller.status().recording:
                 self.controller.stop_recording(save=True)
@@ -1185,7 +1268,10 @@ class ModernMuseWindow(QMainWindow):
         )
         threading.Thread(target=self._monitor_game_output, args=(result,), daemon=True).start()
         self.pending_game_auto_record = False
-        self._append_log(f"Launched {self.game_registry.get(game_id).title} in a separate game window.")
+        if demo_mode:
+            self._append_log(f"Launched {self.game_registry.get(game_id).title} demo in a separate game window.")
+        else:
+            self._append_log(f"Launched {self.game_registry.get(game_id).title} in a separate game window.")
 
     def _monitor_game_output(self, process) -> None:
         if process.stdout is None:
@@ -1273,9 +1359,9 @@ class ModernMuseWindow(QMainWindow):
         game_id = self.game_combo.currentData()
         if game_id is None:
             self.game_description_label.setText(self._ui("no_game_selected"))
-            if hasattr(self, "examiner_heading_label"):
-                self.examiner_heading_label.setText(self._ui("examiner_empty"))
-                self.examiner_subtitle_label.setText("")
+            if hasattr(self, "examiner_subtitle_label"):
+                self.examiner_subtitle_label.setText(self._ui("examiner_empty"))
+                self.examiner_help_label.setText("")
             return
         game = self.game_registry.get(game_id)
         self.game_language_combo.blockSignals(True)
@@ -1301,7 +1387,7 @@ class ModernMuseWindow(QMainWindow):
         self._update_examiner_preview(game)
 
     def _update_examiner_preview(self, game) -> None:
-        if not hasattr(self, "examiner_heading_label"):
+        if not hasattr(self, "examiner_subtitle_label"):
             return
         preview_map = game.examiner_preview or {}
         preview = preview_map.get(self.software_language_code) or preview_map.get("en")
@@ -1311,18 +1397,37 @@ class ModernMuseWindow(QMainWindow):
                 subtitle=self._ui("examiner_default_subtitle"),
             )
 
-        self.examiner_heading_label.setText(preview.heading)
         self.examiner_subtitle_label.setText(preview.subtitle)
         self.examiner_help_label.setText(
-            self._ui("examiner_language", language=self.software_languages.get(self.software_language_code, "English"))
+            self._ui(
+                "examiner_language",
+                language=self.software_languages.get(self.software_language_code, ("English", "English"))[1],
+            )
             + "\n\n"
             + self._ui("planner_help")
         )
+
+    def _collect_demo_n_value(self) -> int | None:
+        n_value_text = self.examiner_n_value_input.text().strip()
+        if not n_value_text:
+            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_required"))
+            return None
+        try:
+            n_value = int(n_value_text)
+        except ValueError:
+            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_integer"))
+            return None
+        if n_value < 1:
+            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_positive"))
+            return None
+        return n_value
 
     def _collect_examiner_setup(self) -> dict[str, object] | None:
         participant_name = self.examiner_name_input.text().strip()
         participant_id = self.examiner_id_input.text().strip()
         age = self.examiner_age_input.text().strip()
+        n_value_text = self.examiner_n_value_input.text().strip()
+        relax_audio_enabled = self.relax_audio_checkbox.isChecked()
         note = self.examiner_note_input.toPlainText().strip()
 
         if not participant_name:
@@ -1333,6 +1438,17 @@ class ModernMuseWindow(QMainWindow):
             return None
         if not age:
             QMessageBox.warning(self, self._ui("examiner_control"), self._ui("age_required"))
+            return None
+        if not n_value_text:
+            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_required"))
+            return None
+        try:
+            n_value = int(n_value_text)
+        except ValueError:
+            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_integer"))
+            return None
+        if n_value < 1:
+            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_positive"))
             return None
 
         stage_plan: list[dict[str, object]] = []
@@ -1371,6 +1487,8 @@ class ModernMuseWindow(QMainWindow):
             "participant_name": participant_name,
             "participant_id": participant_id,
             "age": age,
+            "n_value": n_value,
+            "relax_audio_enabled": relax_audio_enabled,
             "note": note,
             "session_stages": stage_plan,
         }
@@ -1380,6 +1498,44 @@ class ModernMuseWindow(QMainWindow):
         self.log_output.appendPlainText(f"[{stamp}] {message}")
         if message.startswith("Saved to "):
             self.last_saved_text = message.removeprefix("Saved to ")
+
+    def _current_save_context(self) -> dict[str, str]:
+        return self._save_context_from_examiner_setup(
+            {
+                "participant_id": self.examiner_id_input.text().strip(),
+                "session_stages": [
+                    {
+                        "kind": stage_key,
+                        "order": self.stage_order_inputs[stage_key].text().strip() or "0",
+                    }
+                    for stage_key in ("relax", "break", "game")
+                ],
+            }
+        )
+
+    @staticmethod
+    def _save_context_from_examiner_setup(examiner_setup: dict[str, object]) -> dict[str, str]:
+        participant_id = str(examiner_setup.get("participant_id", "")).strip() or "unknown"
+        session_stages = examiner_setup.get("session_stages", [])
+        session_label = ModernMuseWindow._session_label_from_stages(session_stages)
+        return {"user_id": participant_id, "session_label": session_label}
+
+    @staticmethod
+    def _session_label_from_stages(session_stages: object) -> str:
+        mapping = {"relax": "A", "game": "B", "break": "C"}
+        ordered: list[tuple[int, str]] = []
+        for stage in session_stages if isinstance(session_stages, list) else []:
+            if not isinstance(stage, dict):
+                continue
+            kind = str(stage.get("kind", "")).strip().lower()
+            try:
+                order = int(stage.get("order", 0))
+            except (TypeError, ValueError):
+                continue
+            if kind in mapping and order > 0:
+                ordered.append((order, mapping[kind]))
+        ordered.sort(key=lambda item: item[0])
+        return "".join(label for _, label in ordered) or "ABC"
 
     def _handle_game_command(self, command: str) -> None:
         if command == "START_RECORDING":

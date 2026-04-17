@@ -5,12 +5,19 @@ from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
-HEADERS = ["Name", "ID", "Age", "score", "Note", "Consent Accepted"]
+HEADERS = ["Name", "ID", "Age", "N Value", "Relax Audio", "score", "Note", "Consent Accepted"]
 SHEET_NAME = "Master Control"
 XML_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 PKG_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 CONTENT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+
+
+def ensure_master_control_workbook(path: Path) -> None:
+    if path.exists():
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    write_master_control_rows(path, [HEADERS.copy()])
 
 
 def append_master_control_row(path: Path, row: list[str]) -> None:

@@ -15,6 +15,8 @@ class ExaminerSession:
     participant_name: str
     participant_id: str
     age: str
+    n_value: int
+    relax_audio_enabled: bool
     note: str
     block_plan: list[int]
     session_stages: list[SessionStage]

@@ -5,7 +5,9 @@ import json
 import os
 import random
 import re
+import subprocess
 import sys
+import threading
 import time
 import tkinter as tk
 from datetime import date, datetime
@@ -14,7 +16,7 @@ from tkinter import messagebox
 
 from .config import NBackRules, calculate_trial_count, load_rules
 from .data import load_participant_tasks, resolve_block_plan
-from .master_control import append_master_control_row
+from .master_control import append_master_control_row, ensure_master_control_workbook
 from .models import ExaminerSession, SessionStage, TrialResult
 
 
@@ -123,14 +125,7 @@ Upon withdrawal:
 - Your identifiable data (if any) will be deleted
 - Anonymized data already included in a public dataset may not be removable
 
-13. Contact Information
-If you have questions or concerns about this study or your participation, you may contact:
-
-Researcher Name: ____________________
-Institution: ____________________
-Email: ____________________
-
-14. Consent Statement
+13. Consent Statement
 By signing below (or agreeing electronically), you confirm that:
 
 - You have read and understood this document in full
@@ -139,13 +134,6 @@ By signing below (or agreeing electronically), you confirm that:
 - You consent to the collection and public sharing of your EEG data and age only
 - You understand that no other personal identifying information will be made public
 - You understand the limits of withdrawing data after public release
-
-Researcher Declaration
-I confirm that the participant has been informed about the study and has given consent voluntarily.
-
-Name: ______________________
-Signature: ______________________
-Date: ______________________
 """,
     "de": """EEG-Studienteilnahme – Ausführliche Bedingungen und informierte Einwilligung
 
@@ -245,14 +233,7 @@ Im Falle eines Rücktritts:
 - Ihre identifizierbaren Daten (falls vorhanden) werden gelöscht
 - Bereits in einem öffentlichen Datensatz enthaltene anonymisierte Daten können möglicherweise nicht entfernt werden
 
-13. Kontaktinformationen
-Wenn Sie Fragen oder Bedenken zu dieser Studie oder Ihrer Teilnahme haben, können Sie sich an folgende Person wenden:
-
-Name der Forschenden: ____________________
-Institution: ____________________
-E-Mail: ____________________
-
-14. Einwilligungserklärung
+13. Einwilligungserklärung
 Mit Ihrer Unterschrift unten (oder elektronischen Zustimmung) bestätigen Sie:
 
 - Sie haben dieses Dokument vollständig gelesen und verstanden
@@ -261,13 +242,6 @@ Mit Ihrer Unterschrift unten (oder elektronischen Zustimmung) bestätigen Sie:
 - Sie stimmen der Erhebung und öffentlichen Freigabe ausschließlich Ihrer EEG-Daten und Ihres Alters zu
 - Sie verstehen, dass keine weiteren personenbezogenen Daten öffentlich gemacht werden
 - Sie verstehen die Grenzen des Datenrücktritts nach öffentlicher Freigabe
-
-Erklärung der Forschenden
-Ich bestätige, dass die teilnehmende Person über die Studie informiert wurde und freiwillig eingewilligt hat.
-
-Name: ______________________
-Unterschrift: ______________________
-Datum: ______________________
 """,
     "vi": """Tham gia nghiên cứu EEG – Điều khoản, điều kiện và chấp thuận tham gia chi tiết
 
@@ -367,14 +341,7 @@ Khi rút lui:
 - Dữ liệu có thể nhận dạng của bạn (nếu có) sẽ bị xóa
 - Dữ liệu ẩn danh đã được đưa vào bộ dữ liệu công khai có thể không thể xóa bỏ
 
-13. Thông tin liên hệ
-Nếu bạn có câu hỏi hoặc lo ngại về nghiên cứu này hoặc việc tham gia của mình, bạn có thể liên hệ:
-
-Tên nhà nghiên cứu: ____________________
-Tổ chức: ____________________
-Email: ____________________
-
-14. Tuyên bố đồng ý
+13. Tuyên bố đồng ý
 Bằng việc ký bên dưới (hoặc đồng ý điện tử), bạn xác nhận rằng:
 
 - Bạn đã đọc và hiểu đầy đủ tài liệu này
@@ -383,13 +350,6 @@ Bằng việc ký bên dưới (hoặc đồng ý điện tử), bạn xác nh�
 - Bạn đồng ý cho việc thu thập và chia sẻ công khai chỉ dữ liệu EEG và tuổi của mình
 - Bạn hiểu rằng sẽ không có thông tin định danh cá nhân nào khác được công khai
 - Bạn hiểu giới hạn của việc rút dữ liệu sau khi công khai
-
-Tuyên bố của nhà nghiên cứu
-Tôi xác nhận rằng người tham gia đã được thông báo về nghiên cứu và đã đồng ý một cách tự nguyện.
-
-Tên: ______________________
-Chữ ký: ______________________
-Ngày: ______________________
 """,
 }
 
@@ -405,6 +365,8 @@ TRANSLATIONS = {
         "name": "Name",
         "participant_id": "ID",
         "age": "Age",
+        "n_value": "N Value",
+        "relax_audio": "Play alpha audio during Relax",
         "note": "Note",
         "language": "Language",
         "session_planner": "Session Planner",
@@ -421,6 +383,9 @@ TRANSLATIONS = {
         "name_required": "Name is required.",
         "id_required": "ID is required.",
         "age_required": "Age is required.",
+        "n_value_required": "N value is required.",
+        "n_value_integer": "N value must be a whole number.",
+        "n_value_positive": "N value must be at least 1.",
         "session_confirmed_status": "Session confirmed for {participant_name}.\nOrder: {summary}\nBlock plan: {block_plan} ({data_source}).",
         "examiner_confirmed": "Examiner confirmed the session.",
         "participant_ready": "Participant: {participant_name}\nSession order: {summary}\nLanguage: {language}\n\nPress Start to begin the full block.",
@@ -450,6 +415,34 @@ TRANSLATIONS = {
         "consent_agree": "I agree to participate in this EEG study.",
         "consent_open_button": "Terms and Conditions",
         "consent_prompt": "Please read the Terms and Conditions before starting the game.",
+        "demo_title": "Demo Mode",
+        "demo_intro_detail": "This guided demo uses {n_value}-back.\n\nYou will play 4 short practice rounds that explain the rule step by step before the real game.\n\n{sliding_rule}",
+        "demo_start": "Start Demo",
+        "demo_round_title": "Demo Round {current}/{total}",
+        "demo_play_round": "Play Round",
+        "demo_next_round": "Next Round",
+        "demo_round_complete": "Round Complete",
+        "demo_complete_title": "Demo is complete",
+        "demo_complete_detail": "You have finished the guided demo.\n\nYou can start the demo again or close this window.",
+        "demo_restart": "Start Demo Again",
+        "demo_close": "Close",
+        "demo_feedback_perfect": "Well done. You responded correctly in this round.",
+        "demo_feedback_missed": "Almost there. You missed at least one required SPACE press in this round.",
+        "demo_feedback_extra": "Almost there. You pressed SPACE when there was no match in this round.",
+        "demo_feedback_mixed": "This round had both missed matches and extra SPACE presses. Try the next one slowly.",
+        "demo_round_1_intro": "Round 1 builds the rule. For the first {n_value} letters, just remember them. Press SPACE on the final letter because it matches the first letter from {n_value} steps earlier.",
+        "demo_round_1_prompt": "Watch the letters. Press SPACE only on the final letter.",
+        "demo_round_1_summary": "The last letter matched the first letter from {n_value} steps earlier. That is when you should press SPACE.",
+        "demo_round_2_intro": "Round 2 shows a non-match. Do not press SPACE on the final letter if it is different from the letter {n_value} steps earlier.",
+        "demo_round_2_prompt": "Do not press SPACE unless the new letter matches {n_value} steps back.",
+        "demo_round_2_summary": "The last letter did not match the letter {n_value} steps earlier, so the correct action was no key press.",
+        "demo_round_3_intro": "Round 3 mixes one match and one non-match. Press SPACE only when the matching letter appears.",
+        "demo_round_3_prompt": "One new letter is a match. Press SPACE only for that one.",
+        "demo_round_3_summary": "A match needs SPACE, and a non-match needs no response.",
+        "demo_round_4_intro": "Round 4 is a short final challenge. Two quick matches appear in a row. Try it on your own.",
+        "demo_round_4_prompt": "Press SPACE whenever a letter matches {n_value} steps back.",
+        "demo_round_4_summary": "This is the same N-back rule you will use in the full game.",
+        "demo_sliding_rule": "Example: {sequence} is a match because the last letter equals the letter {n_value} step(s) back. After that, the rule slides forward, so the next new letter is compared with {next_reference}, then the next one after that, and so on.",
     },
     "de": {
         "game_title": "Fokusspiel",
@@ -462,6 +455,8 @@ TRANSLATIONS = {
         "name": "Name",
         "participant_id": "ID",
         "age": "Alter",
+        "n_value": "N-Wert",
+        "relax_audio": "Alpha-Audio waehrend Entspannung abspielen",
         "note": "Notiz",
         "language": "Sprache",
         "session_planner": "Sitzungsplaner",
@@ -478,6 +473,9 @@ TRANSLATIONS = {
         "name_required": "Name ist erforderlich.",
         "id_required": "ID ist erforderlich.",
         "age_required": "Alter ist erforderlich.",
+        "n_value_required": "N-Wert ist erforderlich.",
+        "n_value_integer": "Der N-Wert muss eine ganze Zahl sein.",
+        "n_value_positive": "Der N-Wert muss mindestens 1 sein.",
         "session_confirmed_status": "Sitzung fuer {participant_name} bestaetigt.\nReihenfolge: {summary}\nBlockplan: {block_plan} ({data_source}).",
         "examiner_confirmed": "Die Sitzung wurde bestaetigt.",
         "participant_ready": "Teilnehmer: {participant_name}\nSitzungsreihenfolge: {summary}\nSprache: {language}\n\nDruecken Sie Start, um den gesamten Block zu beginnen.",
@@ -507,6 +505,34 @@ TRANSLATIONS = {
         "consent_agree": "Ich stimme der Teilnahme an dieser EEG-Studie zu.",
         "consent_open_button": "Bedingungen lesen",
         "consent_prompt": "Bitte lesen Sie vor dem Start die Bedingungen und Einwilligung.",
+        "demo_title": "Demo-Modus",
+        "demo_intro_detail": "Diese gefuehrte Demo verwendet {n_value}-Back.\n\nSie spielen 4 kurze Uebungsrunden, die die Regel Schritt fuer Schritt vor dem echten Spiel erklaeren.\n\n{sliding_rule}",
+        "demo_start": "Demo starten",
+        "demo_round_title": "Demo-Runde {current}/{total}",
+        "demo_play_round": "Runde spielen",
+        "demo_next_round": "Naechste Runde",
+        "demo_round_complete": "Runde beendet",
+        "demo_complete_title": "Demo ist abgeschlossen",
+        "demo_complete_detail": "Sie haben die gefuehrte Demo abgeschlossen.\n\nSie koennen die Demo erneut starten oder dieses Fenster schliessen.",
+        "demo_restart": "Demo erneut starten",
+        "demo_close": "Schliessen",
+        "demo_feedback_perfect": "Sehr gut. Sie haben in dieser Runde korrekt reagiert.",
+        "demo_feedback_missed": "Fast geschafft. Sie haben in dieser Runde mindestens einen notwendigen LEERTASTE-Druck verpasst.",
+        "demo_feedback_extra": "Fast geschafft. Sie haben in dieser Runde LEERTASTE gedrueckt, obwohl kein Treffer vorlag.",
+        "demo_feedback_mixed": "In dieser Runde gab es verpasste Treffer und zusaetzliche LEERTASTE-Drucke. Versuchen Sie die naechste Runde langsam.",
+        "demo_round_1_intro": "Runde 1 erklaert die Grundregel. Merken Sie sich die ersten {n_value} Buchstaben. Druecken Sie bei dem letzten Buchstaben LEERTASTE, weil er mit dem ersten Buchstaben von vor {n_value} Schritten uebereinstimmt.",
+        "demo_round_1_prompt": "Beobachten Sie die Buchstaben. Druecken Sie LEERTASTE nur beim letzten Buchstaben.",
+        "demo_round_1_summary": "Der letzte Buchstabe entsprach dem ersten Buchstaben von vor {n_value} Schritten. Dann sollten Sie LEERTASTE druecken.",
+        "demo_round_2_intro": "Runde 2 zeigt einen Nicht-Treffer. Druecken Sie beim letzten Buchstaben keine LEERTASTE, wenn er sich vom Buchstaben {n_value} Schritte zuvor unterscheidet.",
+        "demo_round_2_prompt": "Druecken Sie LEERTASTE nur dann, wenn der neue Buchstabe {n_value} Schritte zurueck uebereinstimmt.",
+        "demo_round_2_summary": "Der letzte Buchstabe stimmte nicht mit dem Buchstaben {n_value} Schritte zuvor ueberein, daher war keine Taste richtig.",
+        "demo_round_3_intro": "Runde 3 mischt einen Treffer und einen Nicht-Treffer. Druecken Sie LEERTASTE nur dann, wenn der passende Buchstabe erscheint.",
+        "demo_round_3_prompt": "Einer der neuen Buchstaben ist ein Treffer. Druecken Sie LEERTASTE nur fuer diesen.",
+        "demo_round_3_summary": "Bei einem Treffer muessen Sie LEERTASTE druecken, bei einem Nicht-Treffer nicht.",
+        "demo_round_4_intro": "Runde 4 ist eine kurze Abschlussuebung. Zwei schnelle Treffer erscheinen hintereinander. Probieren Sie es selbst.",
+        "demo_round_4_prompt": "Druecken Sie LEERTASTE, wenn ein Buchstabe {n_value} Schritte zuvor uebereinstimmt.",
+        "demo_round_4_summary": "Das ist genau dieselbe N-Back-Regel wie im echten Spiel.",
+        "demo_sliding_rule": "Beispiel: {sequence} ist ein Treffer, weil der letzte Buchstabe dem Buchstaben von vor {n_value} Schritten entspricht. Danach verschiebt sich das Fenster nach vorn, also wird der naechste neue Buchstabe mit {next_reference} verglichen, dann mit dem darauffolgenden Buchstaben usw.",
     },
     "vi": {
         "game_title": "Trò chơi Tập trung",
@@ -519,6 +545,8 @@ TRANSLATIONS = {
         "name": "Tên",
         "participant_id": "ID",
         "age": "Tuổi",
+        "n_value": "Giá trị N",
+        "relax_audio": "Phát âm thanh alpha trong lúc Thư giãn",
         "note": "Ghi chú",
         "language": "Ngôn ngữ",
         "session_planner": "Lập kế hoạch phiên",
@@ -535,6 +563,9 @@ TRANSLATIONS = {
         "name_required": "Cần nhập tên.",
         "id_required": "Cần nhập ID.",
         "age_required": "Cần nhập tuổi.",
+        "n_value_required": "Cần nhập giá trị N.",
+        "n_value_integer": "Giá trị N phải là số nguyên.",
+        "n_value_positive": "Giá trị N phải lớn hơn hoặc bằng 1.",
         "session_confirmed_status": "Đã xác nhận phiên cho {participant_name}.\nThứ tự: {summary}\nKế hoạch block: {block_plan} ({data_source}).",
         "examiner_confirmed": "Đã xác nhận phiên.",
         "participant_ready": "Người tham gia: {participant_name}\nThứ tự phiên: {summary}\nNgôn ngữ: {language}\n\nNhấn Bắt đầu để chạy toàn bộ block.",
@@ -564,6 +595,34 @@ TRANSLATIONS = {
         "consent_agree": "Tôi đồng ý tham gia nghiên cứu EEG này.",
         "consent_open_button": "Điều khoản và điều kiện",
         "consent_prompt": "Vui lòng đọc điều khoản và điều kiện trước khi bắt đầu game.",
+        "demo_title": "Chế độ Demo",
+        "demo_intro_detail": "Demo có hướng dẫn này dùng mức {n_value}-back.\n\nBạn sẽ chơi 4 vòng ngắn để hiểu luật từng bước trước khi vào game thật.\n\n{sliding_rule}",
+        "demo_start": "Bắt đầu demo",
+        "demo_round_title": "Vòng demo {current}/{total}",
+        "demo_play_round": "Chơi vòng này",
+        "demo_next_round": "Vòng tiếp theo",
+        "demo_round_complete": "Đã xong vòng này",
+        "demo_complete_title": "Demo đã hoàn thành",
+        "demo_complete_detail": "Bạn đã hoàn thành phần demo có hướng dẫn.\n\nBạn có thể chạy lại demo hoặc đóng cửa sổ này.",
+        "demo_restart": "Chạy lại demo",
+        "demo_close": "Đóng",
+        "demo_feedback_perfect": "Rất tốt. Bạn đã phản hồi đúng trong vòng này.",
+        "demo_feedback_missed": "Gần đúng rồi. Bạn đã bỏ lỡ ít nhất một lần cần nhấn SPACE trong vòng này.",
+        "demo_feedback_extra": "Gần đúng rồi. Bạn đã nhấn SPACE khi không có ký tự khớp trong vòng này.",
+        "demo_feedback_mixed": "Vòng này có cả lần bỏ lỡ ký tự khớp và lần nhấn dư. Hãy thử vòng tiếp theo chậm hơn.",
+        "demo_round_1_intro": "Vòng 1 giúp bạn hiểu luật cơ bản. Với {n_value} ký tự đầu tiên, chỉ cần ghi nhớ. Ở ký tự cuối, hãy nhấn SPACE vì nó giống ký tự đầu tiên xuất hiện trước đó {n_value} bước.",
+        "demo_round_1_prompt": "Quan sát các ký tự. Chỉ nhấn SPACE ở ký tự cuối cùng.",
+        "demo_round_1_summary": "Ký tự cuối cùng giống ký tự đầu tiên từ {n_value} bước trước. Đó là lúc bạn nên nhấn SPACE.",
+        "demo_round_2_intro": "Vòng 2 cho bạn thấy trường hợp không khớp. Đừng nhấn SPACE ở ký tự cuối nếu nó khác ký tự xuất hiện trước đó {n_value} bước.",
+        "demo_round_2_prompt": "Đừng nhấn SPACE nếu ký tự mới không khớp với {n_value} bước trước.",
+        "demo_round_2_summary": "Ký tự cuối không khớp với ký tự {n_value} bước trước, nên thao tác đúng là không nhấn phím.",
+        "demo_round_3_intro": "Vòng 3 có một ký tự khớp và một ký tự không khớp. Chỉ nhấn SPACE khi ký tự khớp xuất hiện.",
+        "demo_round_3_prompt": "Một trong các ký tự mới là ký tự khớp. Chỉ nhấn SPACE cho ký tự đó.",
+        "demo_round_3_summary": "Ký tự khớp cần nhấn SPACE, còn ký tự không khớp thì không nhấn.",
+        "demo_round_4_intro": "Vòng 4 là thử thách ngắn cuối cùng. Hai ký tự khớp xuất hiện liên tiếp. Hãy tự thử nhé.",
+        "demo_round_4_prompt": "Nhấn SPACE khi ký tự hiện tại khớp với ký tự {n_value} bước trước.",
+        "demo_round_4_summary": "Đây chính là luật N-back bạn sẽ dùng trong game thật.",
+        "demo_sliding_rule": "Ví dụ: {sequence} là một lần khớp vì ký tự cuối cùng giống ký tự ở {n_value} bước trước. Sau đó cửa sổ so sánh sẽ trượt lên phía trước, nên ký tự mới tiếp theo sẽ được so với {next_reference}, rồi tiếp tục so với ký tự tiếp theo sau đó.",
     },
 }
 
@@ -572,7 +631,10 @@ class NBackGameController:
     def __init__(self, root: tk.Tk, assets_dir: Path) -> None:
         self.root = root
         self.assets_dir = assets_dir
+        self.relax_audio_path = assets_dir.parent.parent / "alpha_15m.mp3"
         self.language_code = self._resolve_language(os.environ.get("EEG_GAME_LANGUAGE", "en"))
+        self.demo_mode = self._coerce_bool(os.environ.get("EEG_GAME_DEMO_MODE", False))
+        self.demo_n_value = self._coerce_positive_int(os.environ.get("EEG_GAME_DEMO_N", 3), default=3)
         self.root.attributes("-fullscreen", True)
         self.root.title(self._t("game_title"))
         self.root.configure(bg="#111827")
@@ -580,7 +642,8 @@ class NBackGameController:
         self.rules: NBackRules = load_rules(assets_dir / "rules.txt")
         self.participant_task_data = load_participant_tasks(assets_dir / "participant-task.csv")
         self.total_blocks = 5
-        self.master_control_path = assets_dir / "result" / "Master_Control.xlsx"
+        self.master_control_path = assets_dir.parent.parent / "EEG_APP" / "Master_Control.xlsx"
+        ensure_master_control_workbook(self.master_control_path)
 
         self.session: ExaminerSession | None = None
         self.session_ready = False
@@ -609,12 +672,20 @@ class NBackGameController:
         self.next_letter_after_id: str | None = None
         self.reset_color_after_id: str | None = None
         self.second_beep_after_id: str | None = None
+        self.relax_audio_thread: threading.Thread | None = None
+        self.relax_audio_stop_event = threading.Event()
+        self.relax_audio_process: subprocess.Popen[str] | None = None
+        self.demo_steps: list[dict[str, object]] = []
+        self.demo_step_index = 0
+        self.demo_round_prompt = ""
         self.max_actual_task_trial_number = self._calculate_game_trials(self.current_game_duration_minutes)
         self.max_practice_task_trial_number = calculate_trial_count(
             self.rules.practice_minutes,
             self.rules.display_time_ms,
             self.rules.intertrial_interval_ms,
         )
+        self.demo_display_time_ms = max(self.rules.display_time_ms, 1400)
+        self.demo_intertrial_interval_ms = max(self.rules.intertrial_interval_ms, 850)
 
         self.status_label = tk.Label(
             root,
@@ -654,44 +725,58 @@ class NBackGameController:
         self.start_button.config(state=tk.DISABLED)
         self.start_button.pack_forget()
 
+        self.secondary_action_button = tk.Button(
+            root,
+            font=("Arial", 18, "bold"),
+            bg="#334155",
+            fg="#F8FAFC",
+            activebackground="#1E293B",
+            activeforeground="#F8FAFC",
+            relief=tk.FLAT,
+            padx=22,
+            pady=10,
+        )
+        self.secondary_action_button.pack_forget()
+
         self.consent_accepted_var = tk.BooleanVar(value=False)
         self.consent_window: tk.Toplevel | None = None
-        self.consent_container = tk.Frame(root, bg="#0F172A", highlightbackground="#1F2937", highlightthickness=1)
+        self.consent_container = tk.Frame(root, bg="#111827", highlightbackground="#334155", highlightthickness=1)
         self.consent_title_label = tk.Label(
             self.consent_container,
             text=self._t("consent_title"),
             font=("Arial", 20, "bold"),
             fg="#F8FAFC",
-            bg="#0F172A",
+            bg="#111827",
             anchor="w",
         )
         self.consent_title_label.pack(fill="x", padx=24, pady=(20, 6))
         self.consent_intro_label = tk.Label(
             self.consent_container,
             text=self._t("consent_prompt"),
-            font=("Arial", 12),
-            fg="#CBD5E1",
-            bg="#0F172A",
+            font=("Arial", 14, "bold"),
+            fg="#F8FAFC",
+            bg="#111827",
             justify="left",
             wraplength=980,
             anchor="w",
         )
-        self.consent_intro_label.pack(fill="x", padx=24, pady=(0, 12))
-        self.consent_link_button = tk.Button(
+        self.consent_intro_label.pack(fill="x", padx=24, pady=(0, 14))
+        self.consent_link_button = tk.Label(
             self.consent_container,
             text=self._t("consent_open_button"),
-            command=self._open_consent_window,
-            font=("Arial", 12, "bold"),
-            bg="#1D4ED8",
+            font=("Arial", 13, "bold"),
+            bg="#16A34A",
             fg="#F8FAFC",
-            activebackground="#1E40AF",
-            activeforeground="#F8FAFC",
-            relief=tk.FLAT,
-            padx=18,
-            pady=10,
+            padx=20,
+            pady=12,
             cursor="hand2",
+            relief=tk.FLAT,
+            bd=0,
         )
-        self.consent_link_button.pack(anchor="w", padx=24, pady=(0, 14))
+        self.consent_link_button.pack(anchor="w", padx=24, pady=(0, 16))
+        self.consent_link_button.bind("<Button-1>", lambda _event: self._open_consent_window())
+        self.consent_link_button.bind("<Enter>", lambda _event: self.consent_link_button.config(bg="#15803D"))
+        self.consent_link_button.bind("<Leave>", lambda _event: self.consent_link_button.config(bg="#16A34A"))
 
         self.consent_checkbox = tk.Checkbutton(
             self.consent_container,
@@ -699,20 +784,23 @@ class NBackGameController:
             variable=self.consent_accepted_var,
             command=self._update_start_gate,
             font=("Arial", 12, "bold"),
-            fg="#ECFEFF",
-            bg="#0F172A",
-            activebackground="#0F172A",
+            fg="#F8FAFC",
+            bg="#111827",
+            activebackground="#111827",
             activeforeground="#ECFEFF",
-            selectcolor="#134E4A",
+            selectcolor="#166534",
             anchor="w",
         )
         self.consent_checkbox.pack(fill="x", padx=24, pady=(0, 18))
 
         self.root.bind("<space>", self.on_space_press)
         self.root.bind("<Escape>", lambda event: self.root.attributes("-fullscreen", False))
+        self.root.protocol("WM_DELETE_WINDOW", self._on_root_close)
         self.examiner_window: tk.Toplevel | None = None
         preset_session = self._load_preset_session()
-        if preset_session is not None:
+        if self.demo_mode:
+            self._setup_demo_mode()
+        elif preset_session is not None:
             self._apply_session(preset_session, source_label="codex setup")
         else:
             self.examiner_window = tk.Toplevel(self.root)
@@ -722,6 +810,42 @@ class NBackGameController:
             self.examiner_window.minsize(640, 760)
             self.examiner_window.protocol("WM_DELETE_WINDOW", self._on_examiner_close)
             self._build_examiner_window()
+
+    def _set_message_layout(self, *, compact: bool) -> None:
+        if compact:
+            self.status_label.pack_configure(expand=False, fill="none", pady=(140, 12))
+            self.detail_label.pack_configure(pady=(0, 18))
+        else:
+            self.status_label.pack_configure(expand=True, fill="both", pady=(80, 16))
+            self.detail_label.pack_configure(pady=(0, 24))
+
+    def _show_primary_action(self, text: str, command) -> None:
+        self.start_button.config(text=text, command=command, state=tk.NORMAL)
+        self.start_button.pack(pady=(0, 18))
+
+    def _hide_primary_action(self) -> None:
+        self.start_button.pack_forget()
+
+    def _show_secondary_action(self, text: str, command) -> None:
+        self.secondary_action_button.config(text=text, command=command)
+        self.secondary_action_button.pack(pady=(0, 48))
+
+    def _hide_secondary_action(self) -> None:
+        self.secondary_action_button.pack_forget()
+
+    def _setup_demo_mode(self) -> None:
+        self.consent_container.pack_forget()
+        self._hide_secondary_action()
+        self._set_message_layout(compact=True)
+        self.status_label.config(text=self._t("demo_title"), font=("Arial", 42, "bold"))
+        self.detail_label.config(
+            text=self._t(
+                "demo_intro_detail",
+                n_value=self.demo_n_value,
+                sliding_rule=self._demo_sliding_rule_text(self.demo_n_value),
+            )
+        )
+        self._show_primary_action(self._t("demo_start"), self._begin_demo_cycle)
 
     def _build_examiner_window(self) -> None:
         container = tk.Frame(self.examiner_window, bg="#F8FAFC")
@@ -758,12 +882,15 @@ class NBackGameController:
             ("participant_name", self._t("name")),
             ("participant_id", self._t("participant_id")),
             ("age", self._t("age")),
+            ("n_value", self._t("n_value")),
         ]
         for row_index, (key, label_text) in enumerate(field_specs):
             label = tk.Label(form, text=label_text, font=("Arial", 12, "bold"), fg="#1E293B", bg="#FFFFFF")
             label.grid(row=row_index, column=0, sticky="w", pady=8)
             entry = tk.Entry(form, font=("Arial", 12), width=28, relief=tk.FLAT, bg="#F8FAFC", fg="#0F172A")
             entry.grid(row=row_index, column=1, sticky="ew", pady=8, padx=(16, 0), ipady=8)
+            if key == "n_value":
+                entry.insert(0, "3")
             self.examiner_fields[key] = entry
 
         note_label = tk.Label(form, text=self._t("note"), font=("Arial", 12, "bold"), fg="#1E293B", bg="#FFFFFF")
@@ -772,8 +899,26 @@ class NBackGameController:
         note_box.grid(row=len(field_specs), column=1, sticky="ew", pady=8, padx=(16, 0))
         self.examiner_fields["note"] = note_box
 
+        self.relax_audio_var = tk.BooleanVar(value=False)
+        relax_audio_label = tk.Label(
+            form,
+            text=self._t("relax_audio"),
+            font=("Arial", 12, "bold"),
+            fg="#1E293B",
+            bg="#FFFFFF",
+        )
+        relax_audio_label.grid(row=len(field_specs) + 1, column=0, sticky="w", pady=8)
+        relax_audio_checkbox = tk.Checkbutton(
+            form,
+            variable=self.relax_audio_var,
+            bg="#FFFFFF",
+            activebackground="#FFFFFF",
+            selectcolor="#D1FAE5",
+        )
+        relax_audio_checkbox.grid(row=len(field_specs) + 1, column=1, sticky="w", pady=8, padx=(16, 0))
+
         language_label = tk.Label(form, text=self._t("language"), font=("Arial", 12, "bold"), fg="#1E293B", bg="#FFFFFF")
-        language_label.grid(row=len(field_specs) + 1, column=0, sticky="w", pady=8)
+        language_label.grid(row=len(field_specs) + 2, column=0, sticky="w", pady=8)
         self.language_value_label = tk.Label(
             form,
             text=LANGUAGE_LABELS.get(self.language_code, self.language_code),
@@ -782,7 +927,7 @@ class NBackGameController:
             bg="#FFFFFF",
             anchor="w",
         )
-        self.language_value_label.grid(row=len(field_specs) + 1, column=1, sticky="ew", pady=8, padx=(16, 0))
+        self.language_value_label.grid(row=len(field_specs) + 2, column=1, sticky="ew", pady=8, padx=(16, 0))
         form.grid_columnconfigure(1, weight=1)
 
         planner_card = tk.Frame(container, bg="#FFFFFF", highlightbackground="#D9E2EC", highlightthickness=1)
@@ -888,16 +1033,19 @@ class NBackGameController:
         self.consent_window = tk.Toplevel(self.root)
         self.consent_window.title(self._t("consent_title"))
         self.consent_window.configure(bg="#F8FAFC")
-        self.consent_window.geometry("760x820")
-        self.consent_window.minsize(680, 700)
+        self.consent_window.geometry("680x560")
+        self.consent_window.minsize(520, 420)
+        self.consent_window.resizable(True, True)
+        self.consent_window.attributes("-fullscreen", False)
+        self.consent_window.protocol("WM_DELETE_WINDOW", self.consent_window.destroy)
 
         container = tk.Frame(self.consent_window, bg="#F8FAFC")
-        container.pack(fill="both", expand=True, padx=22, pady=22)
+        container.pack(fill="both", expand=True, padx=18, pady=18)
 
         title = tk.Label(
             container,
             text=self._t("consent_title"),
-            font=("Arial", 22, "bold"),
+            font=("Arial", 20, "bold"),
             fg="#0F172A",
             bg="#F8FAFC",
         )
@@ -906,23 +1054,25 @@ class NBackGameController:
         intro = tk.Label(
             container,
             text=self._t("consent_intro"),
-            font=("Arial", 12),
+            font=("Arial", 13),
             fg="#475569",
             bg="#F8FAFC",
             justify="left",
-            wraplength=690,
+            wraplength=620,
         )
-        intro.pack(anchor="w", pady=(8, 14))
+        intro.pack(anchor="w", pady=(8, 12))
 
         text_frame = tk.Frame(container, bg="#F8FAFC")
         text_frame.pack(fill="both", expand=True)
         consent_text = tk.Text(
             text_frame,
-            font=("Arial", 11),
+            font=("Arial", 14),
             wrap="word",
             bg="#FFFFFF",
             fg="#111827",
             relief=tk.FLAT,
+            padx=14,
+            pady=14,
         )
         consent_text.insert("1.0", CONSENT_TEXT.get(self.language_code, CONSENT_TEXT["en"]))
         consent_text.config(state=tk.DISABLED)
@@ -930,21 +1080,6 @@ class NBackGameController:
         consent_text.configure(yscrollcommand=scrollbar.set)
         consent_text.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-
-        close_button = tk.Button(
-            container,
-            text="Close",
-            command=self.consent_window.destroy,
-            font=("Arial", 12, "bold"),
-            bg="#0F766E",
-            fg="#F8FAFC",
-            activebackground="#115E59",
-            activeforeground="#F8FAFC",
-            relief=tk.FLAT,
-            padx=18,
-            pady=10,
-        )
-        close_button.pack(anchor="e", pady=(14, 0))
 
     def confirm_examiner_session(self) -> None:
         if self.session_started:
@@ -954,6 +1089,7 @@ class NBackGameController:
         participant_name = self._entry_value("participant_name")
         participant_id = self._entry_value("participant_id")
         age = self._entry_value("age")
+        n_value_text = self._entry_value("n_value")
         note = self._entry_value("note")
 
         if not participant_name:
@@ -964,6 +1100,17 @@ class NBackGameController:
             return
         if not age:
             messagebox.showerror(self._t("examiner_title"), self._t("age_required"))
+            return
+        if not n_value_text:
+            messagebox.showerror(self._t("examiner_title"), self._t("n_value_required"))
+            return
+        try:
+            n_value = int(n_value_text)
+        except ValueError:
+            messagebox.showerror(self._t("examiner_title"), self._t("n_value_integer"))
+            return
+        if n_value < 1:
+            messagebox.showerror(self._t("examiner_title"), self._t("n_value_positive"))
             return
 
         stage_plan = self._read_stage_plan()
@@ -976,6 +1123,8 @@ class NBackGameController:
                 participant_name=participant_name,
                 participant_id=participant_id,
                 age=age,
+                n_value=n_value,
+                relax_audio_enabled=self.relax_audio_var.get(),
                 note=note,
                 block_plan=block_plan,
                 session_stages=stage_plan,
@@ -998,7 +1147,7 @@ class NBackGameController:
         self.sequence.clear()
         self.session_export_path = None
         self.game_stage_completed = False
-        self.current_game_n_value = session.block_plan[0] if session.block_plan else 1
+        self.current_game_n_value = session.n_value
 
         summary = " -> ".join(
             f"{self._stage_name(stage.kind)} ({stage.duration_minutes:g} min)"
@@ -1015,6 +1164,7 @@ class NBackGameController:
                 ),
                 fg="#0F766E",
             )
+        self._set_message_layout(compact=True)
         self.status_label.config(text=self._t("examiner_confirmed"))
         self.detail_label.config(
             text=self._t(
@@ -1032,6 +1182,7 @@ class NBackGameController:
         self.consent_container.pack(fill="both", expand=False, padx=80, pady=(0, 24))
         self.start_button.config(text=self._t("start_button"))
         self.start_button.pack(pady=(0, 48))
+        self._hide_secondary_action()
         self._update_start_gate()
 
     def _update_start_gate(self) -> None:
@@ -1049,8 +1200,13 @@ class NBackGameController:
         participant_name = str(payload.get("participant_name", "")).strip()
         participant_id = str(payload.get("participant_id", "")).strip()
         age = str(payload.get("age", "")).strip()
-        if not participant_name or not participant_id or not age:
+        try:
+            n_value = int(payload.get("n_value", 3))
+        except (TypeError, ValueError):
             return None
+        if not participant_name or not participant_id or not age or n_value < 1:
+            return None
+        relax_audio_enabled = self._coerce_bool(payload.get("relax_audio_enabled", False))
         block_plan = resolve_block_plan(participant_id, self.participant_task_data, self.total_blocks)
         stage_payload = payload.get("session_stages", [])
         stages = [
@@ -1069,6 +1225,8 @@ class NBackGameController:
             participant_name=participant_name,
             participant_id=participant_id,
             age=age,
+            n_value=n_value,
+            relax_audio_enabled=relax_audio_enabled,
             note=str(payload.get("note", "")).strip(),
             block_plan=block_plan,
             session_stages=stages,
@@ -1114,6 +1272,7 @@ class NBackGameController:
         if not self.session_ready or self.session is None or not self.consent_accepted_var.get():
             return
         self._clear_runtime_callbacks()
+        self._stop_relax_audio()
         self.session_started = True
         self.current_stage_index = -1
         self.completed_blocks.clear()
@@ -1121,7 +1280,7 @@ class NBackGameController:
         self.sequence.clear()
         self.session_export_path = None
         self.game_stage_completed = False
-        self.current_game_n_value = self.session.block_plan[0] if self.session and self.session.block_plan else 1
+        self.current_game_n_value = self.session.n_value if self.session else 3
         self.consent_container.pack_forget()
         self.start_button.pack_forget()
         self.experiment_start_time = datetime.now().strftime("%H:%M:%S")
@@ -1132,6 +1291,7 @@ class NBackGameController:
     def _advance_to_next_stage(self) -> None:
         if self.session is None:
             return
+        self._stop_relax_audio()
         self.stage_transition_after_id = None
         self.current_stage_index += 1
         if self.current_stage_index >= len(self.session.session_stages):
@@ -1150,11 +1310,15 @@ class NBackGameController:
         self._cancel_after("countdown_after_id")
         self._cancel_after("letter_hide_after_id")
         self._cancel_after("next_letter_after_id")
+        self._stop_relax_audio()
         self.is_playing = False
         self.state = kind
+        self._set_message_layout(compact=False)
         total_seconds = max(1, int(round(duration_minutes * 60)))
         if kind == "relax":
             self.status_label.config(text=self._t("please_relax"))
+            if self.session is not None and self.session.relax_audio_enabled:
+                self._start_relax_audio()
         else:
             self.status_label.config(text=self._t("please_break"))
         self.detail_label.config(text="")
@@ -1166,6 +1330,7 @@ class NBackGameController:
         minutes, seconds = divmod(remaining_seconds, 60)
         self.detail_label.config(text=self._t("time_remaining", minutes=minutes, seconds=seconds))
         if remaining_seconds <= 0:
+            self._stop_relax_audio()
             self._play_stage_end_signal()
             self.detail_label.config(text=self._t("preparing_next"))
             self.stage_transition_after_id = self.root.after(1000, self._advance_to_next_stage)
@@ -1173,6 +1338,7 @@ class NBackGameController:
         self.countdown_after_id = self.root.after(1000, self._run_stage_countdown, remaining_seconds - 1)
 
     def _start_game_stage(self, duration_minutes: float) -> None:
+        self._stop_relax_audio()
         self._cancel_after("countdown_after_id")
         self._cancel_after("stage_transition_after_id")
         self.current_game_duration_minutes = duration_minutes
@@ -1183,6 +1349,7 @@ class NBackGameController:
         self.n = self.current_game_n_value if self.current_game_n_value is not None else 1
         self.state = "playing"
         self.is_playing = True
+        self._set_message_layout(compact=False)
         self.sequence = self.generate_sequence(self.max_actual_task_trial_number)
         self.show_next_letter()
 
@@ -1190,10 +1357,11 @@ class NBackGameController:
         if self.state == "game_intro":
             self._advance_game_intro()
             return
-        if self.state == "playing":
+        if self.state in {"playing", "demo_playing"}:
             self.check_match()
 
     def _show_game_intro(self, duration_minutes: float) -> None:
+        self._stop_relax_audio()
         self._cancel_after("countdown_after_id")
         self._cancel_after("stage_transition_after_id")
         self.state = "game_intro"
@@ -1212,6 +1380,7 @@ class NBackGameController:
         if not self.game_intro_pages:
             return
         title, detail = self.game_intro_pages[self.current_instruction_screen]
+        self._set_message_layout(compact=True)
         self.status_label.config(text=title, font=("Arial", 40, "bold"))
         self.detail_label.config(text=detail)
         self.root.configure(bg="#111827")
@@ -1224,6 +1393,163 @@ class NBackGameController:
             self._start_game_stage(self.current_game_duration_minutes)
             return
         self._render_game_intro_page()
+
+    def _begin_demo_cycle(self) -> None:
+        self._clear_runtime_callbacks()
+        self._stop_relax_audio()
+        self.root.configure(bg="#111827")
+        self.current_game_n_value = self.demo_n_value
+        self.demo_steps = self._build_demo_steps(self.demo_n_value)
+        self.demo_step_index = 0
+        self._show_demo_step_intro()
+
+    def _show_demo_step_intro(self) -> None:
+        if not self.demo_steps:
+            self._show_demo_complete()
+            return
+        step = self.demo_steps[self.demo_step_index]
+        self.state = "demo_intro"
+        self.is_playing = False
+        self._set_message_layout(compact=True)
+        self.status_label.config(
+            text=self._t("demo_round_title", current=self.demo_step_index + 1, total=len(self.demo_steps)),
+            font=("Arial", 40, "bold"),
+        )
+        self.detail_label.config(text=str(step["intro"]))
+        self._hide_secondary_action()
+        self._show_primary_action(self._t("demo_play_round"), self._start_demo_round)
+
+    def _start_demo_round(self) -> None:
+        step = self.demo_steps[self.demo_step_index]
+        self._clear_runtime_callbacks()
+        self.root.configure(bg="#111827")
+        self.n = self.demo_n_value
+        self.sequence = list(step["sequence"])
+        self.results.clear()
+        self.current_letter = None
+        self.demo_round_prompt = str(step["prompt"])
+        self.state = "demo_playing"
+        self.is_playing = True
+        self._set_message_layout(compact=False)
+        self.status_label.config(text="", font=("Arial", 120, "bold"))
+        self.detail_label.config(text=self.demo_round_prompt)
+        self._hide_primary_action()
+        self._hide_secondary_action()
+        self.show_next_letter()
+
+    def _complete_demo_round(self) -> None:
+        self._cancel_after("letter_hide_after_id")
+        self._cancel_after("next_letter_after_id")
+        self.is_playing = False
+        self.state = "demo_result"
+        step = self.demo_steps[self.demo_step_index]
+        feedback_key = self._demo_feedback_key()
+        detail = f"{step['summary']}\n\n{self._t(feedback_key)}"
+        self._set_message_layout(compact=True)
+        self.status_label.config(text=self._t("demo_round_complete"), font=("Arial", 38, "bold"))
+        self.detail_label.config(text=detail)
+        if self.demo_step_index >= len(self.demo_steps) - 1:
+            self._show_primary_action(self._t("demo_restart"), self._begin_demo_cycle)
+            self._show_secondary_action(self._t("demo_close"), self._on_root_close)
+            self.status_label.config(text=self._t("demo_complete_title"), font=("Arial", 38, "bold"))
+            self.detail_label.config(text=self._t("demo_complete_detail") + "\n\n" + detail)
+            return
+        self._show_primary_action(self._t("demo_next_round"), self._advance_demo_step)
+
+    def _advance_demo_step(self) -> None:
+        self.demo_step_index += 1
+        if self.demo_step_index >= len(self.demo_steps):
+            self._show_demo_complete()
+            return
+        self._show_demo_step_intro()
+
+    def _show_demo_complete(self) -> None:
+        self.state = "demo_complete"
+        self.is_playing = False
+        self._set_message_layout(compact=True)
+        self.status_label.config(text=self._t("demo_complete_title"), font=("Arial", 40, "bold"))
+        self.detail_label.config(text=self._t("demo_complete_detail"))
+        self._show_primary_action(self._t("demo_restart"), self._begin_demo_cycle)
+        self._show_secondary_action(self._t("demo_close"), self._on_root_close)
+
+    def _build_demo_steps(self, n_value: int) -> list[dict[str, object]]:
+        alphabet = [chr(index) for index in range(65, 91)]
+
+        def base_letters(offset: int) -> list[str]:
+            return [alphabet[(offset + index) % len(alphabet)] for index in range(n_value)]
+
+        round_one = base_letters(0)
+        round_two = base_letters(6)
+        round_three = base_letters(12)
+        round_four = base_letters(18)
+
+        nonmatch_two = alphabet[(6 + n_value) % len(alphabet)]
+        if nonmatch_two == round_two[0]:
+            nonmatch_two = alphabet[(7 + n_value) % len(alphabet)]
+
+        nonmatch_three = alphabet[(12 + n_value + 1) % len(alphabet)]
+        if nonmatch_three == round_three[1 % len(round_three)]:
+            nonmatch_three = alphabet[(12 + n_value + 2) % len(alphabet)]
+
+        return [
+            {
+                "intro": self._t("demo_round_1_intro", n_value=n_value),
+                "prompt": self._t("demo_round_1_prompt"),
+                "summary": self._t("demo_round_1_summary", n_value=n_value),
+                "sequence": round_one + [round_one[0]],
+            },
+            {
+                "intro": self._t("demo_round_2_intro", n_value=n_value),
+                "prompt": self._t("demo_round_2_prompt", n_value=n_value),
+                "summary": self._t("demo_round_2_summary", n_value=n_value),
+                "sequence": round_two + [nonmatch_two],
+            },
+            {
+                "intro": self._t("demo_round_3_intro", n_value=n_value),
+                "prompt": self._t("demo_round_3_prompt"),
+                "summary": self._t("demo_round_3_summary"),
+                "sequence": round_three + [round_three[0], nonmatch_three],
+            },
+            {
+                "intro": self._t("demo_round_4_intro"),
+                "prompt": self._t("demo_round_4_prompt", n_value=n_value),
+                "summary": self._t("demo_round_4_summary"),
+                "sequence": round_four + [round_four[0], round_four[1 % len(round_four)]],
+            },
+        ]
+
+    def _demo_sliding_rule_text(self, n_value: int) -> str:
+        alphabet = [chr(index) for index in range(ord("S"), ord("Z") + 1)] + [chr(index) for index in range(ord("A"), ord("R") + 1)]
+        base_letters = [alphabet[index % len(alphabet)] for index in range(max(n_value, 1))]
+        sequence = "-".join(base_letters + [base_letters[0]])
+        next_reference = base_letters[1] if len(base_letters) > 1 else base_letters[0]
+        return self._t(
+            "demo_sliding_rule",
+            n_value=n_value,
+            sequence=sequence,
+            next_reference=next_reference,
+        )
+
+    def _demo_feedback_key(self) -> str:
+        expected_indices = {
+            index
+            for index in range(len(self.sequence))
+            if self.n is not None and index >= self.n and self.sequence[index] == self.sequence[index - self.n]
+        }
+        pressed_indices = {
+            index
+            for index, result in enumerate(self.results)
+            if result.is_key_pressed == "Yes"
+        }
+        missed = expected_indices - pressed_indices
+        extra = pressed_indices - expected_indices
+        if not missed and not extra:
+            return "demo_feedback_perfect"
+        if missed and extra:
+            return "demo_feedback_mixed"
+        if missed:
+            return "demo_feedback_missed"
+        return "demo_feedback_extra"
 
     def generate_sequence(self, num_trials: int) -> list[str]:
         if self.n is None:
@@ -1262,6 +1588,8 @@ class NBackGameController:
         if not self.is_playing or len(self.results) >= len(self.sequence):
             if self.state == "playing":
                 self._complete_actual_block()
+            elif self.state == "demo_playing":
+                self._complete_demo_round()
             return
 
         self.current_letter = self.sequence[len(self.results)]
@@ -1276,8 +1604,9 @@ class NBackGameController:
             )
         )
         self.status_label.config(text=self.current_letter, font=("Arial", 120, "bold"))
-        self.detail_label.config(text="")
-        self.letter_hide_after_id = self.root.after(self.rules.display_time_ms, self.hide_letter)
+        self.detail_label.config(text=self.demo_round_prompt if self.state == "demo_playing" else "")
+        display_time_ms = self.demo_display_time_ms if self.state == "demo_playing" else self.rules.display_time_ms
+        self.letter_hide_after_id = self.root.after(display_time_ms, self.hide_letter)
 
     def hide_letter(self) -> None:
         self.letter_hide_after_id = None
@@ -1287,7 +1616,11 @@ class NBackGameController:
         current.match_or_not_match = "MATCH" if self.is_match() else "NOT_MATCH"
         current.timestamp_letter_disappeared = time.time()
         self.status_label.config(text="", font=("Arial", 36, "bold"))
-        self.next_letter_after_id = self.root.after(self.rules.intertrial_interval_ms, self.show_next_letter)
+        self.detail_label.config(text=self.demo_round_prompt if self.state == "demo_playing" else "")
+        intertrial_interval_ms = (
+            self.demo_intertrial_interval_ms if self.state == "demo_playing" else self.rules.intertrial_interval_ms
+        )
+        self.next_letter_after_id = self.root.after(intertrial_interval_ms, self.show_next_letter)
 
     def check_match(self) -> None:
         if not self.is_playing or not self.current_letter or not self.results:
@@ -1297,7 +1630,7 @@ class NBackGameController:
             return
         is_match = self.is_match()
         self.status_label.config(text=self.current_letter or "", font=("Arial", 120, "bold"))
-        self.detail_label.config(text="")
+        self.detail_label.config(text=self.demo_round_prompt if self.state == "demo_playing" else "")
         self.root.configure(bg="#052E16" if is_match else "#7F1D1D")
         current.is_key_pressed = "Yes"
         self.reset_color_after_id = self.root.after(400, lambda: self.root.configure(bg="#111827"))
@@ -1319,6 +1652,7 @@ class NBackGameController:
         self._play_stage_end_signal()
         self.game_stage_completed = True
         self.state = "game_stage_complete"
+        self._set_message_layout(compact=True)
         self.status_label.config(text=self._t("block_ended"), font=("Arial", 34, "bold"))
         self.detail_label.config(text=self._t("preparing_next"))
         self.stage_transition_after_id = self.root.after(1000, self._advance_to_next_stage)
@@ -1338,11 +1672,15 @@ class NBackGameController:
                     self.session.participant_name,
                     self.session.participant_id,
                     self.session.age,
+                    str(self.session.n_value),
+                    "✓" if self.session.relax_audio_enabled else "",
                     f"{score:.2f}",
                     self.session.note,
                     "✓" if self.consent_accepted_var.get() else "",
                 ],
             )
+        self._stop_relax_audio()
+        self._set_message_layout(compact=True)
         self.status_label.config(text=self._t("block_ended"), font=("Arial", 34, "bold"))
         if self.session_export_path is not None:
             self.detail_label.config(
@@ -1350,7 +1688,8 @@ class NBackGameController:
             )
         else:
             self.detail_label.config(text=self._t("experiment_finished", score=score))
-        self.start_button.pack_forget()
+        self._hide_primary_action()
+        self._hide_secondary_action()
         self.session_ready = False
 
     def calculate_score(self) -> float:
@@ -1446,6 +1785,22 @@ class NBackGameController:
         return cleaned or "participant"
 
     @staticmethod
+    def _coerce_bool(value: object) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in {"1", "true", "yes", "on"}
+        return bool(value)
+
+    @staticmethod
+    def _coerce_positive_int(value: object, *, default: int) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            return default
+        return parsed if parsed > 0 else default
+
+    @staticmethod
     def _emit_command(command: str) -> None:
         print(f"EEG_CMD:{command}", flush=True)
 
@@ -1494,6 +1849,46 @@ class NBackGameController:
             "second_beep_after_id",
         ):
             self._cancel_after(attr_name)
+
+    def _start_relax_audio(self) -> None:
+        if not self.relax_audio_path.exists():
+            return
+        self._stop_relax_audio()
+        self.relax_audio_stop_event = threading.Event()
+
+        def loop_audio() -> None:
+            while not self.relax_audio_stop_event.is_set():
+                try:
+                    process = subprocess.Popen(["afplay", str(self.relax_audio_path)])
+                except Exception:
+                    self.relax_audio_process = None
+                    return
+                self.relax_audio_process = process
+                while process.poll() is None:
+                    if self.relax_audio_stop_event.wait(0.2):
+                        try:
+                            process.terminate()
+                        except Exception:
+                            pass
+                        break
+                self.relax_audio_process = None
+
+        self.relax_audio_thread = threading.Thread(target=loop_audio, daemon=True)
+        self.relax_audio_thread.start()
+
+    def _stop_relax_audio(self) -> None:
+        self.relax_audio_stop_event.set()
+        process = self.relax_audio_process
+        if process is not None and process.poll() is None:
+            try:
+                process.terminate()
+            except Exception:
+                pass
+        self.relax_audio_process = None
+
+    def _on_root_close(self) -> None:
+        self._stop_relax_audio()
+        self.root.destroy()
 
     def _play_stage_end_signal(self) -> None:
         self.root.bell()

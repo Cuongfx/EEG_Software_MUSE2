@@ -1,6 +1,6 @@
 # EEG Analyse
 
-`EEG Analyse` is a desktop software for Muse-based EEG/PPG acquisition, live signal visualization, recording, and an examiner-controlled N-back task (`Focus Game`).
+`EEG Analyse` is a desktop software for Muse-based EEG/PPG acquisition, live signal visualization and recording
 
 ## Main Features
 

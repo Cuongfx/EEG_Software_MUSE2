@@ -13,7 +13,7 @@ import time
 import tkinter as tk
 from datetime import date, datetime
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 from .config import NBackRules, calculate_trial_count, load_rules
 from .data import load_participant_tasks, resolve_block_plan
@@ -851,12 +851,19 @@ TRANSLATIONS = {
         "participant_locked": "The participant screen will unlock after the examiner confirms the session.",
         "start_button": "Start",
         "examiner_heading": "Examiner Control",
-        "examiner_subtitle": "Fill in participant details and define the Relax, Break, and Game session order before the participant starts.",
+        "examiner_subtitle": "Fill in participant details and arrange Relax (A), Break (B), and Game (C) freely before the participant starts.",
         "name": "Name",
         "participant_id": "ID",
+        "participant_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
+        "device_id": "DeviceID",
         "age": "Age",
         "n_value": "N Value",
-        "relax_audio": "Play alpha audio during Relax",
+        "relax_audio": "Play music during Relax",
+        "music_track": "Music track",
+        "music_binaural_sound": "Binaural sound",
+        "music_rain_sound": "Rain sound",
+        "music_switch_on": "On",
+        "music_switch_off": "Off",
         "announcement_volume": "Announcement volume",
         "note": "Note",
         "language": "Language",
@@ -867,12 +874,13 @@ TRANSLATIONS = {
         "relax": "Relax",
         "break": "Break",
         "game": "Game",
-        "planner_help": "Use order 1, 2, and 3 exactly once. Set any stage duration to 0 if you want to skip that stage, but Game must be greater than 0.",
+        "planner_help": "Arrange Relax (A), Break (B), and Game (C) freely using orders 1, 2, and 3 exactly once. You can set a stage duration to 0 to skip it, but Game must be greater than 0.",
         "awaiting_details": "Awaiting session details.",
         "confirm_session": "Confirm Session",
         "session_running_message": "The game is already running. Open a new game window if you want another session.",
         "name_required": "Name is required.",
         "id_required": "ID is required.",
+        "device_id_required": "DeviceID is required.",
         "age_required": "Age is required.",
         "n_value_required": "N value is required.",
         "n_value_integer": "N value must be a whole number.",
@@ -884,7 +892,7 @@ TRANSLATIONS = {
         "duration_number": "{stage} duration must be a number.",
         "order_range": "{stage} order must be 1, 2, or 3.",
         "duration_negative": "{stage} duration can not be negative.",
-        "order_unique": "Relax, Break, and Game must use order 1, 2, and 3 exactly once.",
+        "order_unique": "Relax, Break, and Game must use orders 1, 2, and 3 exactly once.",
         "game_duration_positive": "Game duration must be greater than zero.",
         "please_relax": "Please relax until you hear the sound",
         "please_break": "Please take a break until you hear the sound",
@@ -945,9 +953,10 @@ TRANSLATIONS = {
         "examiner_subtitle": "Bitte Teilnehmerdaten eingeben und die Reihenfolge von Entspannung, Pause und Spiel festlegen, bevor der Teilnehmer startet.",
         "name": "Name",
         "participant_id": "ID",
+        "participant_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
         "age": "Alter",
         "n_value": "N-Wert",
-        "relax_audio": "Alpha-Audio waehrend Entspannung abspielen",
+        "relax_audio": "Musik waehrend Entspannung abspielen",
         "announcement_volume": "Lautstaerke der Ansage",
         "note": "Notiz",
         "language": "Sprache",
@@ -1036,9 +1045,10 @@ TRANSLATIONS = {
         "examiner_subtitle": "Nhập thông tin người tham gia và sắp xếp thứ tự Thư giãn, Nghỉ và Game trước khi người chơi bắt đầu.",
         "name": "Tên",
         "participant_id": "ID",
+        "participant_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
         "age": "Tuổi",
         "n_value": "Giá trị N",
-        "relax_audio": "Phát âm thanh alpha trong lúc Thư giãn",
+        "relax_audio": "Phát nhạc trong lúc Thư giãn",
         "announcement_volume": "Âm lượng thông báo",
         "note": "Ghi chú",
         "language": "Ngôn ngữ",
@@ -1127,9 +1137,10 @@ TRANSLATIONS = {
         "examiner_subtitle": "请在参与者开始前填写信息，并设置放松、休息和游戏阶段顺序。",
         "name": "姓名",
         "participant_id": "ID",
+        "participant_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
         "age": "年龄",
         "n_value": "N 值",
-        "relax_audio": "放松阶段播放 alpha 音频",
+        "relax_audio": "放松阶段播放音乐",
         "announcement_volume": "提示音音量",
         "note": "备注",
         "language": "语言",
@@ -1218,9 +1229,10 @@ TRANSLATIONS = {
         "examiner_subtitle": "أدخل بيانات المشارك وحدد ترتيب مراحل الاسترخاء والاستراحة واللعبة قبل بدء المشارك.",
         "name": "الاسم",
         "participant_id": "المعرف",
+        "participant_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
         "age": "العمر",
         "n_value": "قيمة N",
-        "relax_audio": "تشغيل صوت ألفا أثناء الاسترخاء",
+        "relax_audio": "تشغيل الموسيقى أثناء الاسترخاء",
         "announcement_volume": "مستوى صوت التنبيه",
         "note": "ملاحظة",
         "language": "اللغة",
@@ -1419,7 +1431,7 @@ TRANSLATION_OVERRIDES["ko"].update(
         "participant_id": "ID",
         "age": "나이",
         "n_value": "N 값",
-        "relax_audio": "휴식 중 알파 오디오 재생",
+        "relax_audio": "휴식 중 음악 재생",
         "announcement_volume": "안내 음량",
         "note": "메모",
         "language": "언어",
@@ -1482,7 +1494,7 @@ TRANSLATION_OVERRIDES["ja"].update(
         "participant_id": "ID",
         "age": "年齢",
         "n_value": "N 値",
-        "relax_audio": "Relax 中に alpha 音声を再生",
+        "relax_audio": "Relax 中に音楽を再生",
         "announcement_volume": "案内音量",
         "note": "メモ",
         "language": "言語",
@@ -1545,7 +1557,7 @@ TRANSLATION_OVERRIDES["fr"].update(
         "participant_id": "ID",
         "age": "Age",
         "n_value": "Valeur N",
-        "relax_audio": "Jouer l'audio alpha pendant Relax",
+        "relax_audio": "Lire de la musique pendant Relax",
         "announcement_volume": "Volume de l'annonce",
         "note": "Note",
         "language": "Langue",
@@ -1608,7 +1620,7 @@ TRANSLATION_OVERRIDES["es"].update(
         "participant_id": "ID",
         "age": "Edad",
         "n_value": "Valor N",
-        "relax_audio": "Reproducir audio alpha durante Relax",
+        "relax_audio": "Reproducir música durante Relax",
         "announcement_volume": "Volumen del anuncio",
         "note": "Nota",
         "language": "Idioma",
@@ -1671,7 +1683,7 @@ TRANSLATION_OVERRIDES["ru"].update(
         "participant_id": "ID",
         "age": "Возраст",
         "n_value": "Значение N",
-        "relax_audio": "Воспроизводить alpha-аудио во время Relax",
+        "relax_audio": "Воспроизводить музыку во время Relax",
         "announcement_volume": "Громкость сигнала",
         "note": "Заметка",
         "language": "Язык",
@@ -1734,7 +1746,7 @@ TRANSLATION_OVERRIDES["it"].update(
         "participant_id": "ID",
         "age": "Eta",
         "n_value": "Valore N",
-        "relax_audio": "Riproduci audio alpha durante Relax",
+        "relax_audio": "Riproduci musica durante Relax",
         "announcement_volume": "Volume annuncio",
         "note": "Nota",
         "language": "Lingua",
@@ -1797,7 +1809,7 @@ TRANSLATION_OVERRIDES["pt"].update(
         "participant_id": "ID",
         "age": "Idade",
         "n_value": "Valor N",
-        "relax_audio": "Tocar audio alpha durante Relax",
+        "relax_audio": "Tocar música durante Relax",
         "announcement_volume": "Volume do anuncio",
         "note": "Nota",
         "language": "Idioma",
@@ -1859,10 +1871,15 @@ del _code, _bundle
 
 
 class NBackGameController:
+    STAGE_SESSION_LABELS = {"relax": "A", "break": "B", "game": "C"}
+
     def __init__(self, root: tk.Tk, assets_dir: Path) -> None:
         self.root = root
         self.assets_dir = assets_dir
-        self.relax_audio_path = assets_dir.parent.parent / "alpha_15m.mp3"
+        self.relax_music_paths = {
+            "binaural_sound": assets_dir.parent.parent / "alpha_15m.mp3",
+            "rain_sound": assets_dir.parent.parent / "rain_sound_15m.mp3",
+        }
         self.stage_end_volume = 0.7
         self.announcement_volume_var = tk.IntVar(value=70)
         self.afplay_command = shutil.which("afplay")
@@ -2031,6 +2048,7 @@ class NBackGameController:
 
         self.root.bind("<space>", self.on_space_press)
         self.root.bind("<Escape>", lambda event: self.root.attributes("-fullscreen", False))
+        self.root.bind("<Configure>", self._on_root_resize)
         self.root.protocol("WM_DELETE_WINDOW", self._on_root_close)
         self.examiner_window: tk.Toplevel | None = None
         preset_session = self._load_preset_session()
@@ -2045,6 +2063,7 @@ class NBackGameController:
             self.examiner_window.geometry("680x800")
             self.examiner_window.minsize(640, 760)
             self.examiner_window.protocol("WM_DELETE_WINDOW", self._on_examiner_close)
+            self.examiner_window.bind("<Configure>", self._on_examiner_window_resize)
             self._build_examiner_window()
 
     def _set_message_layout(self, *, compact: bool) -> None:
@@ -2117,6 +2136,7 @@ class NBackGameController:
         field_specs = [
             ("participant_name", self._t("name")),
             ("participant_id", self._t("participant_id")),
+            ("device_id", self._t("device_id")),
             ("age", self._t("age")),
             ("n_value", self._t("n_value")),
         ]
@@ -2128,14 +2148,30 @@ class NBackGameController:
             if key == "n_value":
                 entry.insert(0, "2")
             self.examiner_fields[key] = entry
+        participant_id_hint = tk.Label(
+            form,
+            text=self._t("participant_id_hint"),
+            font=("Arial", 10),
+            fg="#64748B",
+            bg="#FFFFFF",
+            justify="left",
+            wraplength=360,
+            anchor="w",
+        )
+        participant_id_hint.grid(row=len(field_specs), column=1, sticky="w", padx=(16, 0), pady=(0, 8))
 
         note_label = tk.Label(form, text=self._t("note"), font=("Arial", 12, "bold"), fg="#1E293B", bg="#FFFFFF")
-        note_label.grid(row=len(field_specs), column=0, sticky="nw", pady=8)
+        note_label.grid(row=len(field_specs) + 1, column=0, sticky="nw", pady=8)
         note_box = tk.Text(form, font=("Arial", 12), width=28, height=4, relief=tk.FLAT, bg="#F8FAFC", fg="#0F172A")
-        note_box.grid(row=len(field_specs), column=1, sticky="ew", pady=8, padx=(16, 0))
+        note_box.grid(row=len(field_specs) + 1, column=1, sticky="ew", pady=8, padx=(16, 0))
         self.examiner_fields["note"] = note_box
 
         self.relax_audio_var = tk.BooleanVar(value=False)
+        self.relax_music_options = {
+            "binaural_sound": self._t("music_binaural_sound"),
+            "rain_sound": self._t("music_rain_sound"),
+        }
+        self.relax_music_var = tk.StringVar(value="binaural_sound")
         relax_audio_label = tk.Label(
             form,
             text=self._t("relax_audio"),
@@ -2143,15 +2179,41 @@ class NBackGameController:
             fg="#1E293B",
             bg="#FFFFFF",
         )
-        relax_audio_label.grid(row=len(field_specs) + 1, column=0, sticky="w", pady=8)
-        relax_audio_checkbox = tk.Checkbutton(
+        relax_audio_label.grid(row=len(field_specs) + 2, column=0, sticky="w", pady=8)
+        self.relax_audio_switch = tk.Checkbutton(
             form,
             variable=self.relax_audio_var,
-            bg="#FFFFFF",
-            activebackground="#FFFFFF",
-            selectcolor="#D1FAE5",
+            indicatoron=False,
+            text=self._t("music_switch_off"),
+            width=6,
+            padx=8,
+            pady=4,
+            relief=tk.FLAT,
+            bg="#E2E8F0",
+            fg="#334155",
+            activebackground="#E2E8F0",
+            activeforeground="#334155",
+            selectcolor="#22C55E",
+            command=self._on_relax_music_toggle,
         )
-        relax_audio_checkbox.grid(row=len(field_specs) + 1, column=1, sticky="w", pady=8, padx=(16, 0))
+        self.relax_audio_switch.grid(row=len(field_specs) + 2, column=1, sticky="e", pady=8, padx=(16, 0))
+        music_track_label = tk.Label(
+            form,
+            text=self._t("music_track"),
+            font=("Arial", 12, "bold"),
+            fg="#1E293B",
+            bg="#FFFFFF",
+        )
+        music_track_label.grid(row=len(field_specs) + 3, column=0, sticky="w", pady=8)
+        self.relax_music_combo = ttk.Combobox(
+            form,
+            state="readonly",
+            values=[self.relax_music_options[k] for k in ("binaural_sound", "rain_sound")],
+            width=26,
+        )
+        self.relax_music_combo.grid(row=len(field_specs) + 3, column=1, sticky="ew", pady=8, padx=(16, 0))
+        self.relax_music_combo.current(0)
+        self._sync_relax_music_enabled_state()
 
         announcement_volume_label = tk.Label(
             form,
@@ -2160,7 +2222,7 @@ class NBackGameController:
             fg="#1E293B",
             bg="#FFFFFF",
         )
-        announcement_volume_label.grid(row=len(field_specs) + 2, column=0, sticky="w", pady=8)
+        announcement_volume_label.grid(row=len(field_specs) + 4, column=0, sticky="w", pady=8)
         self.announcement_volume_scale = tk.Scale(
             form,
             from_=0,
@@ -2173,7 +2235,7 @@ class NBackGameController:
             highlightthickness=0,
             command=self._on_announcement_volume_changed,
         )
-        self.announcement_volume_scale.grid(row=len(field_specs) + 2, column=1, sticky="ew", pady=8, padx=(16, 0))
+        self.announcement_volume_scale.grid(row=len(field_specs) + 4, column=1, sticky="ew", pady=8, padx=(16, 0))
         self.announcement_volume_value_label = tk.Label(
             form,
             text="70%",
@@ -2182,10 +2244,10 @@ class NBackGameController:
             bg="#FFFFFF",
             anchor="w",
         )
-        self.announcement_volume_value_label.grid(row=len(field_specs) + 3, column=1, sticky="w", padx=(16, 0))
+        self.announcement_volume_value_label.grid(row=len(field_specs) + 5, column=1, sticky="w", padx=(16, 0))
 
         language_label = tk.Label(form, text=self._t("language"), font=("Arial", 12, "bold"), fg="#1E293B", bg="#FFFFFF")
-        language_label.grid(row=len(field_specs) + 4, column=0, sticky="w", pady=8)
+        language_label.grid(row=len(field_specs) + 5, column=0, sticky="w", pady=8)
         self.language_value_label = tk.Label(
             form,
             text=LANGUAGE_LABELS.get(self.language_code, self.language_code),
@@ -2194,7 +2256,7 @@ class NBackGameController:
             bg="#FFFFFF",
             anchor="w",
         )
-        self.language_value_label.grid(row=len(field_specs) + 4, column=1, sticky="ew", pady=8, padx=(16, 0))
+        self.language_value_label.grid(row=len(field_specs) + 5, column=1, sticky="ew", pady=8, padx=(16, 0))
         self._sync_announcement_volume_label(self.announcement_volume_var.get())
         form.grid_columnconfigure(1, weight=1)
 
@@ -2221,13 +2283,13 @@ class NBackGameController:
             )
 
         default_stages = [
-            (self._t("relax"), 1, 2.0),
-            (self._t("break"), 2, 2.0),
-            (self._t("game"), 3, float(self.rules.actual_minutes)),
+            ("relax", 1, 2.0),
+            ("break", 2, 2.0),
+            ("game", 3, float(self.rules.actual_minutes)),
         ]
         self.stage_fields: dict[str, dict[str, tk.Entry]] = {}
         for row_index, (kind, order, duration) in enumerate(default_stages, start=2):
-            tk.Label(planner, text=kind, font=("Arial", 12, "bold"), fg="#111827", bg="#FFFFFF").grid(
+            tk.Label(planner, text=self._stage_label(kind), font=("Arial", 12, "bold"), fg="#111827", bg="#FFFFFF").grid(
                 row=row_index, column=0, sticky="w", pady=8
             )
             order_entry = tk.Entry(planner, font=("Arial", 12), width=8, relief=tk.FLAT, bg="#F8FAFC", fg="#0F172A")
@@ -2236,16 +2298,9 @@ class NBackGameController:
             duration_entry = tk.Entry(planner, font=("Arial", 12), width=12, relief=tk.FLAT, bg="#F8FAFC", fg="#0F172A")
             duration_entry.insert(0, f"{duration:g}")
             duration_entry.grid(row=row_index, column=2, sticky="ew", pady=8, ipady=8)
-            self.stage_fields[kind.lower() if kind.lower() in {"relax", "break", "game"} else self._stage_key(kind)] = {
+            self.stage_fields[kind] = {
                 "order": order_entry,
                 "duration": duration_entry,
-            }
-
-        if "relax" not in self.stage_fields:
-            self.stage_fields = {
-                "relax": self.stage_fields[self._stage_key(self._t("relax"))],
-                "break": self.stage_fields[self._stage_key(self._t("break"))],
-                "game": self.stage_fields[self._stage_key(self._t("game"))],
             }
 
         help_text = tk.Label(
@@ -2306,6 +2361,7 @@ class NBackGameController:
         self.consent_window.resizable(True, True)
         self.consent_window.attributes("-fullscreen", False)
         self.consent_window.protocol("WM_DELETE_WINDOW", self.consent_window.destroy)
+        self.consent_window.bind("<Configure>", self._on_consent_window_resize)
 
         container = tk.Frame(self.consent_window, bg="#F8FAFC")
         container.pack(fill="both", expand=True, padx=18, pady=18)
@@ -2329,10 +2385,11 @@ class NBackGameController:
             wraplength=620,
         )
         intro.pack(anchor="w", pady=(8, 12))
+        self.consent_intro_window_label = intro
 
         text_frame = tk.Frame(container, bg="#F8FAFC")
         text_frame.pack(fill="both", expand=True)
-        consent_text = tk.Text(
+        self.consent_text_widget = tk.Text(
             text_frame,
             font=("Arial", 14),
             wrap="word",
@@ -2342,12 +2399,9 @@ class NBackGameController:
             padx=14,
             pady=14,
         )
-        consent_text.insert("1.0", CONSENT_TEXT.get(self.language_code, CONSENT_TEXT["en"]))
-        consent_text.config(state=tk.DISABLED)
-        scrollbar = tk.Scrollbar(text_frame, command=consent_text.yview)
-        consent_text.configure(yscrollcommand=scrollbar.set)
-        consent_text.pack(side="left", fill="both", expand=True)
-        scrollbar.pack(side="right", fill="y")
+        self.consent_text_widget.insert("1.0", CONSENT_TEXT.get(self.language_code, CONSENT_TEXT["en"]))
+        self.consent_text_widget.config(state=tk.DISABLED)
+        self.consent_text_widget.pack(fill="both", expand=True)
 
     def confirm_examiner_session(self) -> None:
         if self.session_started:
@@ -2356,6 +2410,7 @@ class NBackGameController:
 
         participant_name = self._entry_value("participant_name")
         participant_id = self._entry_value("participant_id")
+        device_id = self._entry_value("device_id")
         age = self._entry_value("age")
         n_value_text = self._entry_value("n_value")
         note = self._entry_value("note")
@@ -2365,6 +2420,15 @@ class NBackGameController:
             return
         if not participant_id:
             messagebox.showerror(self._t("examiner_title"), self._t("id_required"))
+            return
+        if not participant_id.isdigit():
+            messagebox.showerror(
+                self._t("examiner_title"),
+                "ID must contain numbers only. Prefix P is added automatically.",
+            )
+            return
+        if not device_id:
+            messagebox.showerror(self._t("examiner_title"), self._t("device_id_required"))
             return
         if not age:
             messagebox.showerror(self._t("examiner_title"), self._t("age_required"))
@@ -2390,9 +2454,11 @@ class NBackGameController:
             ExaminerSession(
                 participant_name=participant_name,
                 participant_id=participant_id,
+                device_id=device_id,
                 age=age,
                 n_value=n_value,
                 relax_audio_enabled=self.relax_audio_var.get(),
+                relax_music_track=self._selected_relax_music_track(),
                 announcement_volume=self._clamp_volume(self.announcement_volume_var.get() / 100.0),
                 note=note,
                 block_plan=block_plan,
@@ -2420,6 +2486,14 @@ class NBackGameController:
         self.stage_end_volume = self._clamp_volume(session.announcement_volume)
         self.announcement_volume_var.set(int(round(self.stage_end_volume * 100)))
         self._sync_announcement_volume_label(self.announcement_volume_var.get())
+        self.relax_audio_var.set(bool(session.relax_audio_enabled))
+        if hasattr(self, "relax_music_combo"):
+            selected_track_label = self.relax_music_options.get(
+                session.relax_music_track,
+                self.relax_music_options["binaural_sound"],
+            )
+            self.relax_music_combo.set(selected_track_label)
+        self._sync_relax_music_enabled_state()
 
         summary = " -> ".join(
             f"{self._stage_name(stage.kind)} ({stage.duration_minutes:g} min)"
@@ -2471,14 +2545,18 @@ class NBackGameController:
 
         participant_name = str(payload.get("participant_name", "")).strip()
         participant_id = str(payload.get("participant_id", "")).strip()
+        device_id = str(payload.get("device_id", "")).strip()
         age = str(payload.get("age", "")).strip()
         try:
             n_value = int(payload.get("n_value", 2))
         except (TypeError, ValueError):
             return None
-        if not participant_name or not participant_id or not age or n_value < 1:
+        if not participant_name or not participant_id or not device_id or not age or n_value < 1:
             return None
         relax_audio_enabled = self._coerce_bool(payload.get("relax_audio_enabled", False))
+        relax_music_track = str(payload.get("relax_music_track", "binaural_sound")).strip().lower() or "binaural_sound"
+        if relax_music_track not in self.relax_music_paths:
+            relax_music_track = "binaural_sound"
         announcement_volume = self._clamp_volume(payload.get("announcement_volume", 0.7))
         block_plan = resolve_block_plan(participant_id, self.participant_task_data, self.total_blocks)
         stage_payload = payload.get("session_stages", [])
@@ -2497,9 +2575,11 @@ class NBackGameController:
         return ExaminerSession(
             participant_name=participant_name,
             participant_id=participant_id,
+            device_id=device_id,
             age=age,
             n_value=n_value,
             relax_audio_enabled=relax_audio_enabled,
+            relax_music_track=relax_music_track,
             announcement_volume=announcement_volume,
             note=str(payload.get("note", "")).strip(),
             block_plan=block_plan,
@@ -3043,7 +3123,7 @@ class NBackGameController:
     def _session_arrangement_token(self) -> str:
         if self.session is None:
             return "ABC"
-        mapping = {"relax": "A", "game": "B", "break": "C"}
+        mapping = {"relax": "A", "break": "B", "game": "C"}
         ordered_stages = sorted(self.session.session_stages, key=lambda stage: stage.order)
         return "".join(mapping.get(stage.kind, "X") for stage in ordered_stages)
 
@@ -3104,6 +3184,30 @@ class NBackGameController:
         self._cancel_after("volume_preview_after_id")
         self.volume_preview_after_id = self.root.after(140, self._play_announcement_preview_sound)
 
+    def _on_relax_music_toggle(self) -> None:
+        self._sync_relax_music_enabled_state()
+
+    def _sync_relax_music_enabled_state(self) -> None:
+        if not hasattr(self, "relax_audio_switch"):
+            return
+        is_enabled = self.relax_audio_var.get()
+        self.relax_audio_switch.config(
+            text=self._t("music_switch_on") if is_enabled else self._t("music_switch_off"),
+            bg="#22C55E" if is_enabled else "#E2E8F0",
+            fg="#FFFFFF" if is_enabled else "#334155",
+            activebackground="#22C55E" if is_enabled else "#E2E8F0",
+            activeforeground="#FFFFFF" if is_enabled else "#334155",
+        )
+        if hasattr(self, "relax_music_combo"):
+            self.relax_music_combo.configure(state="readonly" if is_enabled else "disabled")
+
+    def _selected_relax_music_track(self) -> str:
+        selected_display = self.relax_music_combo.get().strip() if hasattr(self, "relax_music_combo") else ""
+        for track_key, track_label in self.relax_music_options.items():
+            if selected_display == track_label:
+                return track_key
+        return "binaural_sound"
+
     def _sync_announcement_volume_label(self, value) -> None:
         try:
             percent = int(float(value))
@@ -3146,6 +3250,9 @@ class NBackGameController:
             "game": self._t("game"),
         }.get(kind, kind.title())
 
+    def _stage_label(self, kind: str) -> str:
+        return f"{self._stage_name(kind)} ({self.STAGE_SESSION_LABELS.get(kind, '?')})"
+
     @staticmethod
     def _stage_key(label: str) -> str:
         normalized = label.strip().lower()
@@ -3154,6 +3261,27 @@ class NBackGameController:
         if normalized in {"break", "pause", "nghi", "nghỉ", "休息", "استراحة"}:
             return "break"
         return "game"
+
+    def _on_root_resize(self, event) -> None:
+        if event.widget is not self.root:
+            return
+        wrap = max(360, event.width - 140)
+        self.status_label.config(wraplength=wrap)
+        self.detail_label.config(wraplength=max(320, event.width - 180))
+
+    def _on_examiner_window_resize(self, event) -> None:
+        if self.examiner_window is None or event.widget is not self.examiner_window:
+            return
+        width = max(event.width - 80, 320)
+        if hasattr(self, "examiner_status_label"):
+            self.examiner_status_label.config(wraplength=width)
+
+    def _on_consent_window_resize(self, event) -> None:
+        if self.consent_window is None or event.widget is not self.consent_window:
+            return
+        width = max(event.width - 60, 320)
+        if hasattr(self, "consent_intro_window_label"):
+            self.consent_intro_window_label.config(wraplength=width)
 
     def _cancel_after(self, attr_name: str) -> None:
         callback_id = getattr(self, attr_name)
@@ -3178,7 +3306,11 @@ class NBackGameController:
             self._cancel_after(attr_name)
 
     def _start_relax_audio(self) -> None:
-        if not self.relax_audio_path.exists():
+        track_key = "binaural_sound"
+        if self.session is not None:
+            track_key = self.session.relax_music_track
+        relax_music_path = self.relax_music_paths.get(track_key, self.relax_music_paths["binaural_sound"])
+        if not relax_music_path.exists():
             return
         self._stop_relax_audio()
         self.relax_audio_stop_event = threading.Event()
@@ -3186,7 +3318,7 @@ class NBackGameController:
         def loop_audio() -> None:
             while not self.relax_audio_stop_event.is_set():
                 try:
-                    process = subprocess.Popen(["afplay", str(self.relax_audio_path)])
+                    process = subprocess.Popen(["afplay", str(relax_music_path)])
                 except Exception:
                     self.relax_audio_process = None
                     return

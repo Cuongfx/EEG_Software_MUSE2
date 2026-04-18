@@ -22,10 +22,12 @@ def save_session_data(
     timestamp: datetime | None = None,
     *,
     user_id: str = "unknown",
+    device_id: str = "unknown_device",
     session_label: str = "ABC",
 ) -> SavedSessionFiles | None:
     timestamp = timestamp or datetime.now()
-    stamp = timestamp.strftime("%Y%m%d")
+    date_stamp = timestamp.strftime("%Y%m%d")
+    time_stamp = timestamp.strftime("%H%M%S")
     result_dir = Path(config.result_dir)
     result_dir.mkdir(parents=True, exist_ok=True)
 
@@ -36,10 +38,11 @@ def save_session_data(
     if not eeg_rows and not ppg_rows:
         return None
 
-    safe_user_id = _safe_filename_token(user_id, fallback="unknown")
+    safe_user_id = _safe_participant_file_id(user_id)
+    safe_device_id = _safe_filename_token(device_id, fallback="unknown_device")
     safe_session_label = _safe_session_label(session_label)
 
-    eeg_path = result_dir / f"{safe_user_id}_EEG_{stamp}_{safe_session_label}.csv"
+    eeg_path = result_dir / f"{safe_user_id}_EEG_{safe_device_id}_{date_stamp}_{time_stamp}_{safe_session_label}.csv"
     with eeg_path.open("w", newline="") as file:
         writer = csv.writer(file)
         writer.writerow(["Timestamp", *config.eeg_channel_names])
@@ -47,7 +50,7 @@ def save_session_data(
 
     ppg_path: Path | None = None
     if ppg_rows:
-        ppg_path = result_dir / f"{safe_user_id}_PPG_{stamp}_{safe_session_label}.csv"
+        ppg_path = result_dir / f"{safe_user_id}_PPG_{safe_device_id}_{date_stamp}_{time_stamp}_{safe_session_label}.csv"
         with ppg_path.open("w", newline="") as file:
             writer = csv.writer(file)
             writer.writerow(
@@ -61,6 +64,14 @@ def save_session_data(
 def _safe_filename_token(value: str, *, fallback: str) -> str:
     cleaned = re.sub(r"[^A-Za-z0-9_-]+", "_", str(value).strip())
     return cleaned or fallback
+
+
+def _safe_participant_file_id(value: str) -> str:
+    raw = str(value).strip()
+    if raw.upper().startswith("P"):
+        raw = raw[1:]
+    cleaned_digits = re.sub(r"[^0-9]+", "", raw)
+    return f"P{cleaned_digits}" if cleaned_digits else "Punknown"
 
 
 def _safe_session_label(value: str) -> str:

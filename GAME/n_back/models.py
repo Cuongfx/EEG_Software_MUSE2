@@ -14,9 +14,11 @@ class SessionStage:
 class ExaminerSession:
     participant_name: str
     participant_id: str
+    device_id: str
     age: str
     n_value: int
     relax_audio_enabled: bool
+    relax_music_track: str
     announcement_volume: float
     note: str
     block_plan: list[int]

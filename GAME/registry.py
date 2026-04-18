@@ -84,10 +84,10 @@ class GameRegistry:
                 examiner_preview={
                     "en": ExaminerPreview(
                         heading="Examiner Control",
-                        subtitle="Fill in participant details and define the Relax, Break, and Game session order before the participant starts.",
+                        subtitle="Fill in participant details and arrange Relax (A), Break (B), and Game (C) before the participant starts.",
                         highlights=(
                             "Participant name, ID, age, and note fields",
-                            "Session planner for Relax, Break, and Game order",
+                            "Session planner for Relax (A), Break (B), and Game (C)",
                             "Language selection and confirmation before launch",
                         ),
                     ),

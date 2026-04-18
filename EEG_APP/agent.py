@@ -15,10 +15,6 @@ class ArchitectureAgent:
     def __init__(self) -> None:
         self.rules = [
             ArchitectureRule(
-                name="ui_boundary",
-                description="UI folder handles windows, dialogs, widgets, and user interaction only.",
-            ),
-            ArchitectureRule(
                 name="eeg_boundary",
                 description="EEG folder handles device discovery, stream control, filters, processing, session state, persistence, and architecture rules.",
             ),

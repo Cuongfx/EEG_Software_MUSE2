@@ -55,7 +55,7 @@ class MuseStreamController:
         self.eeg_channel_labels: list[str] = []
         self._eeg_mapping_logged = False
         self._last_recovery_attempt = 0.0
-        self._save_context: dict[str, str] = {"user_id": "unknown", "session_label": "ABC"}
+        self._save_context: dict[str, str] = {"user_id": "unknown", "device_id": "unknown_device", "session_label": "ABC"}
 
     def start(self) -> None:
         if self.running:
@@ -100,6 +100,7 @@ class MuseStreamController:
             self.config,
             self.state,
             user_id=self._save_context["user_id"],
+            device_id=self._save_context["device_id"],
             session_label=self._save_context["session_label"],
         )
         if saved_files is None:
@@ -124,6 +125,7 @@ class MuseStreamController:
             self.config,
             self.state,
             user_id=self._save_context["user_id"],
+            device_id=self._save_context["device_id"],
             session_label=self._save_context["session_label"],
         )
         if saved_files is None:
@@ -135,14 +137,15 @@ class MuseStreamController:
         self.clear_save_context()
         return saved_files
 
-    def set_save_context(self, *, user_id: str, session_label: str) -> None:
+    def set_save_context(self, *, user_id: str, device_id: str, session_label: str) -> None:
         self._save_context = {
             "user_id": str(user_id or "unknown"),
+            "device_id": str(device_id or "unknown_device"),
             "session_label": str(session_label or "ABC"),
         }
 
     def clear_save_context(self) -> None:
-        self._save_context = {"user_id": "unknown", "session_label": "ABC"}
+        self._save_context = {"user_id": "unknown", "device_id": "unknown_device", "session_label": "ABC"}
 
     def status(self) -> ControllerStatus:
         with self.state.data_lock:

@@ -10,6 +10,7 @@ from pathlib import Path
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
+    QBoxLayout,
     QCheckBox,
     QComboBox,
     QFrame,
@@ -19,10 +20,10 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
-    QScrollArea,
     QPushButton,
     QPlainTextEdit,
     QApplication,
+    QScrollArea,
     QSlider,
     QSizePolicy,
     QSplitter,
@@ -45,7 +46,7 @@ from EEG_APP.processing import estimate_hr_from_ppg, filter_eeg_for_display
 from GAME import ExaminerPreview
 from GAME import GameRegistry
 from UI.dialogs import DeviceSelectionDialog
-from UI.widgets import MetricCard, PlotCard
+from UI.widgets import MetricCard, PlotCard, SlideSwitch
 
 
 class ModernMuseWindow(QMainWindow):
@@ -97,13 +98,20 @@ class ModernMuseWindow(QMainWindow):
             "session_log_placeholder": "Connection events, recording state, and game launches appear here.",
             "examiner_control": "Examiner Control",
             "examiner_empty": "No examiner control available.",
-            "examiner_default_subtitle": "Configure the participant and session details before launching the game.",
+            "examiner_default_subtitle": "Configure participant details and arrange Relax (A), Break (B), and Game (C) before launching the game.",
             "field_name": "Name",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
+            "field_device_id": "DeviceID",
             "field_age": "Age",
             "field_n_value": "N Value",
             "field_note": "Note",
-            "field_relax_audio": "Play alpha audio during Relax",
+            "field_relax_audio": "Play music during Relax",
+            "field_music_track": "Music track",
+            "music_binaural_sound": "Binaural sound",
+            "music_rain_sound": "Rain sound",
+            "music_switch_on": "On",
+            "music_switch_off": "Off",
             "field_announcement_volume": "Announcement volume",
             "planner_title": "Session Planner",
             "planner_session": "Session",
@@ -112,7 +120,7 @@ class ModernMuseWindow(QMainWindow):
             "stage_relax": "Relax",
             "stage_break": "Break",
             "stage_game": "Game",
-            "planner_help": "Use order 1, 2, and 3 exactly once. Set any stage duration to 0 if you want to skip that stage, but Game must be greater than 0.",
+            "planner_help": "Arrange Relax (A), Break (B), and Game (C) freely using orders 1, 2, and 3 exactly once. You can set a stage duration to 0 to skip it, but Game must be greater than 0.",
             "examiner_language": "Language: {language}",
             "stream_connected": "{name} Stream  Connected",
             "stream_waiting": "{name} Stream  Waiting",
@@ -127,6 +135,7 @@ class ModernMuseWindow(QMainWindow):
             "disconnect_device_failed": "Could not disconnect the device.\n\n{error}",
             "name_required": "Name is required.",
             "id_required": "ID is required.",
+            "device_id_required": "DeviceID is required.",
             "age_required": "Age is required.",
             "n_value_required": "N value is required.",
             "n_value_integer": "N value must be a whole number.",
@@ -135,7 +144,7 @@ class ModernMuseWindow(QMainWindow):
             "duration_number": "{stage} duration must be a number.",
             "order_range": "{stage} order must be 1, 2, or 3.",
             "duration_negative": "{stage} duration can not be negative.",
-            "order_unique": "Relax, Break, and Game must use order 1, 2, and 3 exactly once.",
+            "order_unique": "Relax, Break, and Game must use orders 1, 2, and 3 exactly once.",
             "game_duration_positive": "Game duration must be greater than zero.",
         },
         "de": {
@@ -182,10 +191,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "Konfigurieren Sie Teilnehmer- und Sitzungsdaten vor dem Start des Spiels.",
             "field_name": "Name",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "Alter",
             "field_n_value": "N-Wert",
             "field_note": "Notiz",
-            "field_relax_audio": "Alpha-Audio waehrend Entspannung abspielen",
+            "field_relax_audio": "Musik waehrend Entspannung abspielen",
             "field_announcement_volume": "Lautstaerke der Ansage",
             "planner_title": "Sitzungsplaner",
             "planner_session": "Sitzung",
@@ -264,10 +274,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "Thiết lập thông tin người tham gia và phiên trước khi bắt đầu game.",
             "field_name": "Tên",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "Tuổi",
             "field_n_value": "Giá trị N",
             "field_note": "Ghi chú",
-            "field_relax_audio": "Phát âm thanh alpha trong lúc Thư giãn",
+            "field_relax_audio": "Phát nhạc trong lúc Thư giãn",
             "field_announcement_volume": "Âm lượng thông báo",
             "planner_title": "Lập kế hoạch phiên",
             "planner_session": "Phiên",
@@ -346,10 +357,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "启动游戏前请先配置参与者信息和会话细节。",
             "field_name": "姓名",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "年龄",
             "field_n_value": "N 值",
             "field_note": "备注",
-            "field_relax_audio": "放松阶段播放 alpha 音频",
+            "field_relax_audio": "放松阶段播放音乐",
             "field_announcement_volume": "提示音音量",
             "planner_title": "会话计划",
             "planner_session": "阶段",
@@ -428,10 +440,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "قم بإعداد بيانات المشارك وتفاصيل الجلسة قبل تشغيل اللعبة.",
             "field_name": "الاسم",
             "field_id": "المعرف",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "العمر",
             "field_n_value": "قيمة N",
             "field_note": "ملاحظة",
-            "field_relax_audio": "تشغيل صوت ألفا أثناء الاسترخاء",
+            "field_relax_audio": "تشغيل الموسيقى أثناء الاسترخاء",
             "field_announcement_volume": "مستوى صوت التنبيه",
             "planner_title": "مخطط الجلسة",
             "planner_session": "الجلسة",
@@ -467,6 +480,7 @@ class ModernMuseWindow(QMainWindow):
             "game_duration_positive": "مدة اللعبة يجب أن تكون أكبر من الصفر.",
         },
     }
+    STAGE_SESSION_LABELS = {"relax": "A", "break": "B", "game": "C"}
 
     _EXTRA_LANGUAGE_CODES = ("ko", "ja", "fr", "es", "ru", "it", "pt")
     _UI_LANGUAGE_OVERRIDES = {
@@ -519,10 +533,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "게임 시작 전에 참가자 정보와 세션 세부사항을 설정하세요.",
             "field_name": "이름",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "나이",
             "field_n_value": "N 값",
             "field_note": "메모",
-            "field_relax_audio": "휴식 중 알파 오디오 재생",
+            "field_relax_audio": "휴식 중 음악 재생",
             "field_announcement_volume": "안내 음량",
             "planner_title": "세션 계획",
             "planner_session": "세션",
@@ -595,10 +610,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "ゲーム開始前に参加者情報とセッション詳細を設定してください。",
             "field_name": "名前",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "年齢",
             "field_n_value": "N 値",
             "field_note": "メモ",
-            "field_relax_audio": "Relax 中に alpha 音声を再生",
+            "field_relax_audio": "Relax 中に音楽を再生",
             "field_announcement_volume": "案内音量",
             "planner_title": "セッション計画",
             "planner_session": "セッション",
@@ -671,10 +687,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "Configurez les informations du participant et les details de session avant de lancer le jeu.",
             "field_name": "Nom",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "Age",
             "field_n_value": "Valeur N",
             "field_note": "Note",
-            "field_relax_audio": "Jouer l'audio alpha pendant Relax",
+            "field_relax_audio": "Lire de la musique pendant Relax",
             "field_announcement_volume": "Volume de l'annonce",
             "planner_title": "Planificateur de session",
             "planner_session": "Session",
@@ -747,10 +764,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "Configura la informacion del participante y los detalles de la sesion antes de iniciar el juego.",
             "field_name": "Nombre",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "Edad",
             "field_n_value": "Valor N",
             "field_note": "Nota",
-            "field_relax_audio": "Reproducir audio alpha durante Relax",
+            "field_relax_audio": "Reproducir música durante Relax",
             "field_announcement_volume": "Volumen del anuncio",
             "planner_title": "Planificador de sesion",
             "planner_session": "Sesion",
@@ -823,10 +841,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "Настройте данные участника и параметры сессии перед запуском игры.",
             "field_name": "Имя",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "Возраст",
             "field_n_value": "Значение N",
             "field_note": "Заметка",
-            "field_relax_audio": "Воспроизводить alpha-аудио во время Relax",
+            "field_relax_audio": "Воспроизводить музыку во время Relax",
             "field_announcement_volume": "Громкость сигнала",
             "planner_title": "План сессии",
             "planner_session": "Сессия",
@@ -899,10 +918,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "Configura le informazioni del partecipante e i dettagli della sessione prima di avviare il gioco.",
             "field_name": "Nome",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "Eta",
             "field_n_value": "Valore N",
             "field_note": "Nota",
-            "field_relax_audio": "Riproduci audio alpha durante Relax",
+            "field_relax_audio": "Riproduci musica durante Relax",
             "field_announcement_volume": "Volume annuncio",
             "planner_title": "Pianificatore sessione",
             "planner_session": "Sessione",
@@ -975,10 +995,11 @@ class ModernMuseWindow(QMainWindow):
             "examiner_default_subtitle": "Configure as informacoes do participante e os detalhes da sessao antes de iniciar o jogo.",
             "field_name": "Nome",
             "field_id": "ID",
+            "field_id_hint": "Write only the ID number. Prefix P is added automatically to saved files.",
             "field_age": "Idade",
             "field_n_value": "Valor N",
             "field_note": "Nota",
-            "field_relax_audio": "Tocar audio alpha durante Relax",
+            "field_relax_audio": "Tocar música durante Relax",
             "field_announcement_volume": "Volume do anuncio",
             "planner_title": "Planejador de sessao",
             "planner_session": "Sessao",
@@ -1008,6 +1029,11 @@ class ModernMuseWindow(QMainWindow):
         _bundle.update(_UI_LANGUAGE_OVERRIDES.get(_code, {}))
         UI_TRANSLATIONS[_code] = _bundle
     del _code, _bundle
+
+    _RELAX_MUSIC_ITEMS = (
+        ("binaural_sound", "music_binaural_sound"),
+        ("rain_sound", "music_rain_sound"),
+    )
 
     def __init__(self, config: AppConfig | None = None) -> None:
         super().__init__()
@@ -1044,6 +1070,7 @@ class ModernMuseWindow(QMainWindow):
         self.metric_card_widgets: list[MetricCard] = []
         self.eeg_plot_widgets: list[PlotCard] = []
         self.ppg_plot_card: PlotCard | None = None
+        self._responsive_signature: tuple[int, int] | None = None
         self.timer = QTimer(self)
         self.game_languages = {
             "en": "English",
@@ -1084,6 +1111,7 @@ class ModernMuseWindow(QMainWindow):
         self._build_ui()
         self._connect_events()
         self._apply_software_language()
+        self._apply_responsive_layout(force=True)
         self.timer.start(self.config.plot_update_interval_ms)
 
     def _ui(self, key: str, **kwargs) -> str:
@@ -1094,7 +1122,7 @@ class ModernMuseWindow(QMainWindow):
         return text.format(**kwargs) if kwargs else text
 
     def _stage_label(self, stage_key: str) -> str:
-        return self._ui(f"stage_{stage_key}")
+        return f"{self._ui(f'stage_{stage_key}')} ({self.STAGE_SESSION_LABELS.get(stage_key, '?')})"
 
     def _apply_software_language(self) -> None:
         default_last_save_values = {
@@ -1130,7 +1158,10 @@ class ModernMuseWindow(QMainWindow):
             self.planner_title_label.setText(self._ui("planner_title"))
             for field_key, label in self.examiner_field_labels.items():
                 label.setText(self._ui(f"field_{field_key}"))
-            self.relax_audio_checkbox.setText(self._ui("field_relax_audio"))
+            self.relax_music_label.setText(self._ui("field_relax_audio"))
+            self.music_track_label.setText(self._ui("field_music_track"))
+            self._refresh_music_track_combo_labels()
+            self._update_relax_music_switch_text()
             self.announcement_volume_label.setText(self._ui("field_announcement_volume"))
             for header, key in zip(
                 self.planner_header_labels,
@@ -1146,262 +1177,418 @@ class ModernMuseWindow(QMainWindow):
                 ("hr", "metric_hr"),
             ):
                 self.metric_cards[key].title_label.setText(self._ui(title))
-            self.rules_label.setText(
-                self._ui("rules_prefix", rules=", ".join(rule.name for rule in self.architecture_agent.list_rules()))
-            )
             self._update_selected_game_panels()
             self._refresh_ui()
 
     def _setup_window(self) -> None:
         self.setWindowTitle(self._ui("window_title"))
         self.resize(1480, 960)
-        self.setMinimumSize(980, 700)
+        self.setMinimumSize(720, 520)
         palette = self.palette()
         palette.setColor(QPalette.ColorRole.Window, QColor("#f5efe6"))
         palette.setColor(QPalette.ColorRole.WindowText, QColor("#1f2937"))
         palette.setColor(QPalette.ColorRole.Base, QColor("#fffdf8"))
         palette.setColor(QPalette.ColorRole.Text, QColor("#1f2937"))
         self.setPalette(palette)
+        self._apply_responsive_styles(force=True)
+
+    @staticmethod
+    def _clamp_int(value: float, minimum: int, maximum: int) -> int:
+        return max(minimum, min(maximum, int(round(value))))
+
+    def _responsive_scale(self) -> float:
+        width_scale = self.width() / 1480.0
+        height_scale = self.height() / 960.0
+        return max(0.84, min(1.0, min(width_scale, height_scale)))
+
+    def _apply_responsive_styles(self, *, force: bool = False) -> None:
+        scale = self._responsive_scale()
+        signature = (int(scale * 100), max(720, self.width()) // 80)
+        if not force and signature == self._responsive_signature:
+            return
+        self._responsive_signature = signature
+
+        ui_scale = min(scale, 1.0)
+        hero_radius = self._clamp_int(30 * ui_scale, 22, 34)
+        card_radius = self._clamp_int(24 * ui_scale, 18, 28)
+        badge_radius = self._clamp_int(18 * ui_scale, 14, 22)
+        combo_radius = self._clamp_int(16 * ui_scale, 12, 20)
+        input_radius = self._clamp_int(14 * ui_scale, 11, 18)
+        hero_title_size = self._clamp_int(28 * ui_scale, 22, 28)
+        hero_subtitle_size = self._clamp_int(13 * ui_scale, 11, 13)
+        section_title_size = self._clamp_int(16 * ui_scale, 14, 16)
+        body_size = self._clamp_int(12 * ui_scale, 11, 12)
+        small_size = self._clamp_int(11 * ui_scale, 10, 11)
+        metric_value_size = self._clamp_int(22 * ui_scale, 18, 22)
+        examiner_heading_size = self._clamp_int(14 * ui_scale, 12, 14)
+        button_height = self._clamp_int(46 * ui_scale, 40, 46)
+        combo_height = self._clamp_int(42 * ui_scale, 36, 42)
+        dropdown_width = self._clamp_int(28 * ui_scale, 22, 28)
+        list_item_height = self._clamp_int(32 * ui_scale, 28, 34)
+        card_padding_v = self._clamp_int(12 * ui_scale, 10, 12)
+        card_padding_h = self._clamp_int(16 * ui_scale, 14, 16)
+        language_height = self._clamp_int(28 * ui_scale, 26, 30)
+        tab_pad_v = self._clamp_int(10 * ui_scale, 9, 10)
+        tab_pad_h = self._clamp_int(20 * ui_scale, 16, 20)
+        item_radius = self._clamp_int(input_radius * 0.75, 8, 14)
+        compact_height = self._clamp_int(36 * ui_scale, 32, 36)
+        compact_button_height = self._clamp_int(40 * ui_scale, 36, 40)
+        compact_padding_v = self._clamp_int(9 * ui_scale, 8, 9)
+        compact_padding_h = self._clamp_int(12 * ui_scale, 10, 12)
+
         self.setStyleSheet(
-            """
-            QWidget#Root {
+            f"""
+            QWidget#Root {{
                 background: qlineargradient(
                     x1: 0, y1: 0, x2: 1, y2: 1,
                     stop: 0 #faf6ef,
                     stop: 0.55 #f7fbfc,
                     stop: 1 #eef7f5
                 );
-            }
-            QFrame#HeroCard {
+            }}
+            QFrame#HeroCard {{
                 background: qlineargradient(
                     x1: 0, y1: 0, x2: 1, y2: 0,
                     stop: 0 #1f2937,
                     stop: 0.5 #134e4a,
                     stop: 1 #0f766e
                 );
-                border-radius: 30px;
-            }
-            QFrame#SidebarCard, QFrame#MetricCard, QFrame#PlotCard {
+                border-radius: {hero_radius}px;
+            }}
+            QFrame#SidebarCard, QFrame#MetricCard, QFrame#PlotCard {{
                 background: rgba(255, 252, 246, 0.96);
                 border: 1px solid #e8dccb;
-                border-radius: 24px;
-            }
-            QLabel#HeroTitle {
+                border-radius: {card_radius}px;
+            }}
+            QFrame#InsetPanel {{
+                background: rgba(248, 244, 236, 0.96);
+                border: 1px solid #eee1cf;
+                border-radius: {self._clamp_int(card_radius * 0.78, 14, 22)}px;
+            }}
+            QLabel#HeroTitle {{
                 color: #fff8ee;
-                font-size: 28px;
+                font-size: {hero_title_size}px;
                 font-weight: 800;
-            }
-            QLabel#HeroSubtitle {
+            }}
+            QLabel#HeroSubtitle {{
                 color: rgba(255, 248, 238, 0.84);
-                font-size: 13px;
-            }
-            QLabel#SectionTitle, QLabel#DialogTitle {
+                font-size: {hero_subtitle_size}px;
+            }}
+            QLabel#SectionTitle, QLabel#DialogTitle {{
                 color: #111827;
-                font-size: 16px;
+                font-size: {section_title_size}px;
                 font-weight: 800;
-            }
-            QLabel#DialogText, QLabel#DialogStatus, QLabel#SupportText {
+            }}
+            QLabel#DialogText, QLabel#DialogStatus, QLabel#SupportText {{
                 color: #5b6472;
-                font-size: 12px;
-            }
-            QLabel#MetricTitle {
-                color: #6b7280;
-                font-size: 11px;
-                font-weight: 700;
-            }
-            QLabel#MetricValue {
-                font-size: 22px;
-                font-weight: 900;
-            }
-            QLabel#MetricCaption {
-                color: #6b7280;
-                font-size: 11px;
-            }
-            QLabel#ExaminerHeading {
-                color: #0f172a;
-                font-size: 14px;
-                font-weight: 800;
-            }
-            QLabel#ExaminerBody {
-                color: #5b6472;
-                font-size: 12px;
-                line-height: 1.45em;
-            }
-            QLabel#FieldLabel {
-                color: #334155;
-                font-size: 11px;
-                font-weight: 800;
-            }
-            QLabel#PlannerHeader {
+                font-size: {body_size}px;
+            }}
+            QLabel#CardLead {{
                 color: #64748b;
-                font-size: 11px;
+                font-size: {body_size}px;
+                font-weight: 600;
+            }}
+            QLabel#MetricTitle {{
+                color: #6b7280;
+                font-size: {small_size}px;
+                font-weight: 700;
+            }}
+            QLabel#MetricValue {{
+                font-size: {metric_value_size}px;
+                font-weight: 900;
+            }}
+            QLabel#MetricCaption {{
+                color: #6b7280;
+                font-size: {small_size}px;
+            }}
+            QLabel#ExaminerHeading {{
+                color: #0f172a;
+                font-size: {examiner_heading_size}px;
                 font-weight: 800;
-            }
-            QCheckBox {
+            }}
+            QLabel#ExaminerBody {{
+                color: #5b6472;
+                font-size: {body_size}px;
+                line-height: 1.45em;
+            }}
+            QLabel#FieldLabel {{
                 color: #334155;
-                font-size: 12px;
+                font-size: {small_size}px;
+                font-weight: 800;
+            }}
+            QLabel#RelaxMusicSwitchCaption {{
+                color: #475569;
+                font-size: {body_size}px;
+                font-weight: 700;
+                min-width: 28px;
+            }}
+            QLabel#PlannerHeader {{
+                color: #64748b;
+                font-size: {small_size}px;
+                font-weight: 800;
+            }}
+            QLabel#InsetTitle {{
+                color: #0f172a;
+                font-size: {small_size}px;
+                font-weight: 800;
+                letter-spacing: 0.02em;
+            }}
+            QCheckBox {{
+                color: #334155;
+                font-size: {body_size}px;
                 font-weight: 700;
                 spacing: 8px;
-            }
-            QPushButton#PrimaryButton {
+            }}
+            QPushButton#PrimaryButton {{
                 background: #0f766e;
                 color: white;
                 border: none;
-                border-radius: 16px;
-                padding: 14px 18px;
+                border-radius: {combo_radius}px;
+                padding: {card_padding_v}px {card_padding_h}px;
                 font-weight: 800;
-                min-height: 48px;
-            }
-            QPushButton#PrimaryButton:hover {
+                min-height: {button_height}px;
+            }}
+            QPushButton#PrimaryButton:hover {{
                 background: #115e59;
-            }
-            QPushButton#AccentButton {
+            }}
+            QPushButton#AccentButton {{
                 background: #f97316;
                 color: white;
                 border: none;
-                border-radius: 16px;
-                padding: 14px 18px;
+                border-radius: {combo_radius}px;
+                padding: {card_padding_v}px {card_padding_h}px;
                 font-weight: 800;
-                min-height: 48px;
-            }
-            QPushButton#AccentButton:hover {
+                min-height: {button_height}px;
+            }}
+            QPushButton#AccentButton:hover {{
                 background: #ea580c;
-            }
-            QPushButton#SecondaryButton {
+            }}
+            QPushButton#SecondaryButton {{
                 background: #fffdf8;
                 color: #1f2937;
                 border: 1px solid #d9c6ae;
-                border-radius: 16px;
-                padding: 14px 18px;
+                border-radius: {combo_radius}px;
+                padding: {card_padding_v}px {card_padding_h}px;
                 font-weight: 700;
-                min-height: 48px;
-            }
-            QPushButton#SecondaryButton:hover {
+                min-height: {button_height}px;
+            }}
+            QPushButton#SecondaryButton:hover {{
                 background: #fff5ea;
-            }
-            QPushButton:disabled {
+            }}
+            QPushButton:disabled {{
                 background: #e7dfd5;
                 color: #9ca3af;
                 border-color: #e7dfd5;
-            }
-            QPlainTextEdit#LogOutput, QListWidget {
+            }}
+            QPlainTextEdit#LogOutput, QListWidget {{
                 background: #fffdf9;
                 color: #1f2937;
                 border: 1px solid #eadfce;
-                border-radius: 18px;
+                border-radius: {badge_radius}px;
                 padding: 12px;
-                font-size: 12px;
-            }
-            QComboBox {
+                font-size: {body_size}px;
+            }}
+            QComboBox {{
                 background: #fffdf8;
                 color: #1f2937;
                 border: 1px solid #d9c6ae;
-                border-radius: 16px;
+                border-radius: {combo_radius}px;
                 padding: 10px 12px;
-                font-size: 12px;
-                min-height: 44px;
-            }
-            QComboBox:hover {
+                font-size: {body_size}px;
+                min-height: {combo_height}px;
+            }}
+            QComboBox:hover {{
                 border: 1px solid #0f766e;
                 background: #fffaf2;
-            }
-            QComboBox::drop-down {
+            }}
+            QComboBox::drop-down {{
                 border: none;
-                width: 28px;
-            }
-            QComboBox#SoftwareLanguageCombo {
+                width: {dropdown_width}px;
+            }}
+            QComboBox#SoftwareLanguageCombo {{
                 background: #d1fae5;
                 color: #064e3b;
                 border: 1px solid #99f6e4;
-                border-radius: 14px;
+                border-radius: {input_radius}px;
                 padding: 3px 10px;
-                font-size: 11px;
+                font-size: {small_size}px;
                 font-weight: 800;
-                min-height: 28px;
-            }
-            QComboBox#SoftwareLanguageCombo:hover {
+                min-height: {language_height}px;
+            }}
+            QComboBox#SoftwareLanguageCombo:hover {{
                 background: #ccfbf1;
                 border: 1px solid #99f6e4;
-            }
-            QComboBox#SoftwareLanguageCombo::drop-down {
+            }}
+            QComboBox#SoftwareLanguageCombo::drop-down {{
                 width: 18px;
-            }
-            QComboBox QAbstractItemView {
+            }}
+            QComboBox QAbstractItemView {{
                 background: #fffdf9;
                 color: #1f2937;
                 border: 1px solid #e3d5c3;
-                border-radius: 14px;
+                border-radius: {input_radius}px;
                 outline: 0;
                 padding: 6px;
                 selection-background-color: #dff7f2;
                 selection-color: #0f172a;
-            }
-            QComboBox QAbstractItemView::item {
-                min-height: 34px;
+            }}
+            QComboBox QAbstractItemView::item {{
+                min-height: {list_item_height}px;
                 padding: 8px 10px;
                 margin: 2px 0;
-                border-radius: 10px;
+                border-radius: {item_radius}px;
                 color: #1f2937;
                 background: transparent;
-            }
-            QComboBox QAbstractItemView::item:hover {
+            }}
+            QComboBox QAbstractItemView::item:hover {{
                 background: #fff1dc;
                 color: #111827;
-            }
-            QComboBox QAbstractItemView::item:selected {
+            }}
+            QComboBox QAbstractItemView::item:selected {{
                 background: #dff7f2;
                 color: #0f172a;
-            }
-            QLineEdit, QTextEdit {
+            }}
+            QLineEdit, QTextEdit {{
                 background: #fffdf8;
                 color: #1f2937;
                 border: 1px solid #d9c6ae;
-                border-radius: 14px;
+                border-radius: {input_radius}px;
                 padding: 10px 12px;
-                font-size: 12px;
-            }
-            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
+                font-size: {body_size}px;
+            }}
+            QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{
                 border: 1px solid #0f766e;
-            }
-            QTabWidget::pane {
+            }}
+            QComboBox[compact="true"], QLineEdit[compact="true"], QTextEdit[compact="true"] {{
+                border-radius: {self._clamp_int(input_radius * 0.92, 10, 16)}px;
+                padding: {self._clamp_int(8 * ui_scale, 7, 9)}px {self._clamp_int(10 * ui_scale, 9, 11)}px;
+                font-size: {self._clamp_int((body_size - 1), 10, 13)}px;
+            }}
+            QComboBox[compact="true"], QLineEdit[compact="true"] {{
+                min-height: {compact_height}px;
+            }}
+            QTextEdit[compact="true"] {{
+                padding-top: {self._clamp_int(9 * ui_scale, 8, 10)}px;
+            }}
+            QPushButton[compact="true"] {{
+                border-radius: {self._clamp_int(combo_radius * 0.92, 11, 18)}px;
+                padding: {compact_padding_v}px {compact_padding_h}px;
+                min-height: {compact_button_height}px;
+            }}
+            QSlider::groove:horizontal {{
+                height: 8px;
+                background: #d8dee7;
+                border-radius: 4px;
+            }}
+            QSlider::sub-page:horizontal {{
+                background: #0ea5a2;
+                border-radius: 4px;
+            }}
+            QSlider::handle:horizontal {{
+                width: 12px;
+                background: #fffdf8;
+                border: 1px solid #94a3b8;
+                border-radius: 6px;
+                margin: -2px 0;
+            }}
+            QTabWidget::pane {{
                 border: 1px solid #e8dccb;
-                border-radius: 24px;
+                border-radius: {card_radius}px;
                 background: rgba(255, 252, 246, 0.72);
                 margin-top: 10px;
-            }
-            QTabBar::tab {
+            }}
+            QTabBar::tab {{
                 background: rgba(255, 249, 240, 0.82);
                 color: #5b6472;
                 border: 1px solid #e8dccb;
                 border-bottom: none;
-                border-top-left-radius: 16px;
-                border-top-right-radius: 16px;
-                padding: 12px 22px;
+                border-top-left-radius: {combo_radius}px;
+                border-top-right-radius: {combo_radius}px;
+                padding: {tab_pad_v}px {tab_pad_h}px;
                 margin-right: 6px;
                 font-weight: 700;
-            }
-            QTabBar::tab:selected {
+            }}
+            QTabBar::tab:selected {{
                 background: #fffdf8;
                 color: #0f172a;
-            }
-            QTabBar::tab:hover:!selected {
+            }}
+            QTabBar::tab:hover:!selected {{
                 background: #fff7eb;
                 color: #1f2937;
-            }
+            }}
             """
         )
 
-    def _build_ui(self) -> None:
-        scroll_area = QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        scroll_area.setFrameShape(QFrame.Shape.NoFrame)
-        self.setCentralWidget(scroll_area)
+    def _apply_responsive_layout(self, *, force: bool = False) -> None:
+        self._apply_responsive_styles(force=force)
+        if not hasattr(self, "signal_area_widget"):
+            return
 
+        scale = self._responsive_scale()
+        width = max(self.width(), 720)
+        height = max(self.height(), 520)
+
+        if hasattr(self, "root_page_layout"):
+            margin = self._clamp_int(20 * scale, 12, 28)
+            self.root_page_layout.setContentsMargins(margin, margin, margin, margin)
+            self.root_page_layout.setSpacing(self._clamp_int(18 * scale, 12, 24))
+        if hasattr(self, "header_layout"):
+            margin = self._clamp_int(18 * scale, 14, 24)
+            self.header_layout.setContentsMargins(margin, margin, margin, margin)
+            self.header_layout.setSpacing(self._clamp_int(22 * scale, 16, 30))
+
+        metric_height = self._clamp_int(82 * scale, 76, 112)
+        for card in self.metric_card_widgets:
+            card.setMinimumHeight(metric_height)
+
+        if hasattr(self, "software_language_combo"):
+            self.software_language_combo.setFixedWidth(self._clamp_int(width * 0.105, 126, 176))
+        if hasattr(self, "connect_button"):
+            sidebar_button_height = self._clamp_int(height * 0.05, 38, 54)
+            self.connect_button.setMinimumHeight(sidebar_button_height)
+            self.connect_button.setMaximumHeight(sidebar_button_height)
+            self.disconnect_button.setMinimumHeight(sidebar_button_height)
+            self.disconnect_button.setMaximumHeight(sidebar_button_height)
+            self.record_button.setMinimumHeight(sidebar_button_height)
+            self.record_button.setMaximumHeight(sidebar_button_height)
+        if hasattr(self, "launch_game_button"):
+            game_panel_width = (
+                self.game_card_widget.width()
+                if hasattr(self, "game_card_widget")
+                else width * 0.24
+            )
+            button_width = self._clamp_int(game_panel_width * 0.74, 160, 220)
+            self.launch_game_button.setMinimumWidth(button_width)
+            self.play_demo_button.setMinimumWidth(button_width)
+        if hasattr(self, "examiner_note_input"):
+            note_height = self._clamp_int(height * 0.07, 64, 78)
+            self.examiner_note_input.setMinimumHeight(note_height)
+            self.examiner_note_input.setMaximumHeight(note_height)
+        if hasattr(self, "examiner_n_value_input"):
+            examiner_width = self.examiner_card_widget.width() if hasattr(self, "examiner_card_widget") else width
+            self.examiner_n_value_input.setMaximumWidth(self._clamp_int(examiner_width * 0.32, 92, 148))
+        if hasattr(self, "log_output"):
+            self.log_output.setMinimumHeight(self._clamp_int(height * 0.18, 96, 220))
+        if hasattr(self, "experiment_content_widget"):
+            self.experiment_content_widget.setMaximumWidth(self._clamp_int(width * 0.96, 980, 1660))
+
+        planner_width = self.planner_card_widget.width() if hasattr(self, "planner_card_widget") else width
+        for input_widget in getattr(self, "stage_order_inputs", {}).values():
+            input_widget.setMaximumWidth(self._clamp_int(planner_width * 0.18, 58, 84))
+        for input_widget in getattr(self, "stage_duration_inputs", {}).values():
+            input_widget.setMaximumWidth(self._clamp_int(planner_width * 0.22, 74, 104))
+
+        self._relayout_experiment_tab()
+        self._relayout_signal_area()
+
+    def _build_ui(self) -> None:
         root = QWidget()
         root.setObjectName("Root")
-        scroll_area.setWidget(root)
+        root.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setCentralWidget(root)
 
         page = QVBoxLayout(root)
+        self.root_page_layout = page
         page.setContentsMargins(20, 20, 20, 20)
         page.setSpacing(18)
         page.addWidget(self._build_header())
@@ -1409,56 +1596,80 @@ class ModernMuseWindow(QMainWindow):
 
     def _build_tabs(self) -> QTabWidget:
         self.tabs_widget = QTabWidget()
+        self.tabs_widget.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.tabs_widget.addTab(self._build_analyse_tab(), self._ui("tab_analyse"))
         self.tabs_widget.addTab(self._build_experiment_tab(), self._ui("tab_experiment"))
         return self.tabs_widget
 
     def _build_analyse_tab(self) -> QWidget:
         container = QWidget()
+        container.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
         self.analyse_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.analyse_splitter.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.analyse_splitter.setChildrenCollapsible(False)
         self.analyse_splitter.addWidget(self._build_signal_area())
         self.analyse_splitter.addWidget(self._build_analyse_sidebar())
         self.analyse_splitter.setStretchFactor(0, 5)
         self.analyse_splitter.setStretchFactor(1, 2)
         self.analyse_splitter.splitterMoved.connect(lambda _pos, _index: self._relayout_signal_area())
-        layout.addWidget(self.analyse_splitter)
-        QTimer.singleShot(0, lambda: self.analyse_splitter.setSizes([980, 420]))
+        layout.addWidget(self.analyse_splitter, stretch=1)
+        QTimer.singleShot(0, self._set_initial_analyse_splitter_sizes)
         return container
 
     def _build_experiment_tab(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-
+        shell = QWidget()
+        shell_layout = QHBoxLayout(shell)
+        shell_layout.setContentsMargins(0, 0, 0, 0)
+        shell_layout.setSpacing(0)
+        shell_layout.addStretch(1)
         content = QWidget()
-        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        self.experiment_content_widget = content
+        content.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        content.setMinimumWidth(980)
+        content.setMaximumWidth(1660)
         layout = QVBoxLayout(content)
-        layout.setContentsMargins(14, 16, 14, 14)
-        layout.setSpacing(16)
+        layout.setContentsMargins(10, 10, 10, 10)
+        layout.setSpacing(10)
         game_card = self._build_game_card()
-        game_card.setMinimumWidth(520)
-        game_card.setMaximumWidth(760)
-        examiner_card = self._build_examiner_card()
-        examiner_card.setMinimumWidth(360)
-        examiner_card.setMaximumWidth(520)
-        cards_row = QHBoxLayout()
-        cards_row.setContentsMargins(0, 0, 0, 0)
-        cards_row.setSpacing(18)
-        cards_row.addStretch(1)
-        cards_row.addWidget(game_card, 3)
-        cards_row.addWidget(examiner_card, 2)
-        cards_row.addStretch(1)
-        layout.addLayout(cards_row)
-        layout.addStretch(1)
-        scroll.setWidget(content)
+        game_card.setMinimumWidth(280)
+        game_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        examiner_card = self._build_examiner_details_card()
+        examiner_card.setMinimumWidth(280)
+        examiner_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        planner_card = self._build_session_planner_card()
+        planner_card.setMinimumWidth(280)
+        planner_card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.game_card_widget = game_card
+        self.examiner_card_widget = examiner_card
+        self.planner_card_widget = planner_card
+        cards_grid = QGridLayout()
+        self.experiment_cards_grid = cards_grid
+        cards_grid.setContentsMargins(0, 0, 0, 0)
+        cards_grid.setHorizontalSpacing(12)
+        cards_grid.setVerticalSpacing(12)
+        layout.addLayout(cards_grid, stretch=1)
+        shell_layout.addWidget(content)
+        shell_layout.addStretch(1)
         self._update_selected_game_panels()
+        QTimer.singleShot(0, self._relayout_experiment_tab)
+        scroll.setWidget(shell)
         return scroll
+
+    def _set_initial_analyse_splitter_sizes(self) -> None:
+        if not hasattr(self, "analyse_splitter"):
+            return
+        total = max(400, self.analyse_splitter.width())
+        left_ratio = 0.69 if total >= 1260 else 0.66
+        left = int(total * left_ratio)
+        right = max(280, total - left)
+        self.analyse_splitter.setSizes([left, right])
 
     def _centered_row(self, widget: QWidget) -> QHBoxLayout:
         row = QHBoxLayout()
@@ -1473,6 +1684,7 @@ class ModernMuseWindow(QMainWindow):
         card = QFrame()
         card.setObjectName("HeroCard")
         layout = QHBoxLayout(card)
+        self.header_layout = layout
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(22)
 
@@ -1548,21 +1760,14 @@ class ModernMuseWindow(QMainWindow):
         return container
 
     def _build_analyse_sidebar(self) -> QWidget:
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         sidebar = QWidget()
-        scroll.setWidget(sidebar)
-        sidebar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Maximum)
+        sidebar.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout = QVBoxLayout(sidebar)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
         layout.addWidget(self._build_device_card())
         layout.addWidget(self._build_log_card(), stretch=1)
-        layout.addStretch(1)
-        return scroll
+        return sidebar
 
     def _build_device_card(self) -> QFrame:
         card = QFrame()
@@ -1577,15 +1782,18 @@ class ModernMuseWindow(QMainWindow):
 
         self.connect_button = QPushButton(self._ui("connect_device"))
         self.connect_button.setObjectName("PrimaryButton")
+        self.connect_button.setProperty("compact", True)
         self.connect_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.disconnect_button = QPushButton(self._ui("disconnect_device"))
         self.disconnect_button.setObjectName("SecondaryButton")
+        self.disconnect_button.setProperty("compact", True)
         self.disconnect_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.connect_button)
         layout.addWidget(self.disconnect_button)
 
         self.record_button = QPushButton(self._ui("record_data"))
         self.record_button.setObjectName("AccentButton")
+        self.record_button.setProperty("compact", True)
         self.record_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.record_button)
 
@@ -1605,61 +1813,53 @@ class ModernMuseWindow(QMainWindow):
         self.last_save_label.setObjectName("SupportText")
         self.last_save_label.setWordWrap(True)
         layout.addWidget(self.last_save_label)
-
-        rules = ", ".join(rule.name for rule in self.architecture_agent.list_rules())
-        self.rules_label = QLabel(self._ui("rules_prefix", rules=rules))
-        self.rules_label.setObjectName("SupportText")
-        self.rules_label.setWordWrap(True)
-        layout.addWidget(self.rules_label)
         return card
 
     def _build_game_card(self) -> QFrame:
         card = QFrame()
         card.setObjectName("SidebarCard")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(26, 24, 26, 24)
-        layout.setSpacing(14)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(12)
 
         self.games_card_title = QLabel(self._ui("games_title"))
         self.games_card_title.setObjectName("SectionTitle")
         layout.addWidget(self.games_card_title)
 
         self.game_combo = QComboBox()
+        self.game_combo.setProperty("compact", True)
         self.game_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.game_combo.setMaximumWidth(620)
         for game in self.game_registry.list_games():
             self.game_combo.addItem(game.title, game.game_id)
-        layout.addLayout(self._centered_row(self.game_combo))
+        layout.addWidget(self.game_combo)
 
         self.game_language_combo = QComboBox()
+        self.game_language_combo.setProperty("compact", True)
         self.game_language_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.game_language_combo.setMaximumWidth(620)
-        layout.addLayout(self._centered_row(self.game_language_combo))
+        layout.addWidget(self.game_language_combo)
 
         self.game_description_label = QLabel()
-        self.game_description_label.setObjectName("SupportText")
+        self.game_description_label.setObjectName("CardLead")
         self.game_description_label.setWordWrap(True)
-        self.game_description_label.setMaximumWidth(760)
-        layout.addLayout(self._centered_row(self.game_description_label))
+        layout.addWidget(self.game_description_label)
 
         self.launch_game_button = QPushButton(self._ui("start_game"))
         self.launch_game_button.setObjectName("PrimaryButton")
-        self.launch_game_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.launch_game_button.setFixedSize(170, 42)
-        layout.addLayout(self._centered_row(self.launch_game_button))
+        self.launch_game_button.setProperty("compact", True)
+        self.launch_game_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        layout.addWidget(self.launch_game_button)
 
         self.play_demo_button = QPushButton(self._ui("play_demo"))
         self.play_demo_button.setObjectName("SecondaryButton")
-        self.play_demo_button.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.play_demo_button.setFixedSize(170, 42)
-        layout.addLayout(self._centered_row(self.play_demo_button))
-        layout.addSpacing(10)
+        self.play_demo_button.setProperty("compact", True)
+        self.play_demo_button.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        layout.addWidget(self.play_demo_button)
+        layout.addStretch(1)
 
         self.game_auto_note_label = QLabel(self._ui("game_auto_note"))
         self.game_auto_note_label.setObjectName("SupportText")
         self.game_auto_note_label.setWordWrap(True)
-        self.game_auto_note_label.setMaximumWidth(760)
-        layout.addLayout(self._centered_row(self.game_auto_note_label))
+        layout.addWidget(self.game_auto_note_label)
 
         self._update_selected_game_panels()
         return card
@@ -1673,10 +1873,11 @@ class ModernMuseWindow(QMainWindow):
 
     def _relayout_signal_area(self) -> None:
         signal_width = self.signal_area_widget.width() if hasattr(self, "signal_area_widget") else self.width()
+        signal_height = self.signal_area_widget.height() if hasattr(self, "signal_area_widget") else self.height()
         metric_width = max(1, signal_width)
-        if metric_width >= 1300:
+        if metric_width >= 1180:
             metric_columns = 4
-        elif metric_width >= 900:
+        elif metric_width >= 640:
             metric_columns = 2
         else:
             metric_columns = 1
@@ -1688,7 +1889,7 @@ class ModernMuseWindow(QMainWindow):
             self.metric_grid.addWidget(card, row, column)
 
         plot_width = max(1, signal_width)
-        plot_columns = 2 if plot_width >= 900 else 1
+        plot_columns = 2 if plot_width >= 760 else 1
         self._clear_layout(self.plot_grid)
         for index, card in enumerate(self.eeg_plot_widgets):
             row = index // plot_columns
@@ -1699,9 +1900,86 @@ class ModernMuseWindow(QMainWindow):
             ppg_row = (len(self.eeg_plot_widgets) + plot_columns - 1) // plot_columns
             self.plot_grid.addWidget(self.ppg_plot_card, ppg_row, 0, 1, plot_columns)
 
+        metric_rows = (len(self.metric_card_widgets) + metric_columns - 1) // metric_columns
+        plot_rows = (len(self.eeg_plot_widgets) + plot_columns - 1) // plot_columns
+        if self.ppg_plot_card is not None:
+            plot_rows += 1
+        plot_card_height = self._clamp_int(
+            (
+                max(260, signal_height)
+                - metric_rows * self._clamp_int(82 * self._responsive_scale(), 76, 112)
+            )
+            / max(plot_rows, 1)
+            - 12,
+            84,
+            220,
+        )
+        for card in self.plot_cards:
+            card.setMinimumHeight(plot_card_height)
+
+        for row in range(self.plot_grid.rowCount()):
+            self.plot_grid.setRowStretch(row, 1)
+        for col in range(self.plot_grid.columnCount()):
+            self.plot_grid.setColumnStretch(col, 1)
+
+    def _relayout_experiment_tab(self) -> None:
+        if not hasattr(self, "experiment_cards_grid"):
+            return
+        self._clear_layout(self.experiment_cards_grid)
+        for column in range(3):
+            self.experiment_cards_grid.setColumnStretch(column, 0)
+        self.experiment_cards_grid.setRowStretch(0, 0)
+
+        cards = (
+            self.game_card_widget,
+            self.examiner_card_widget,
+            self.planner_card_widget,
+        )
+        for column, card in enumerate(cards):
+            self.experiment_cards_grid.addWidget(card, 0, column)
+            self.experiment_cards_grid.setColumnStretch(column, 1)
+        self.experiment_cards_grid.setRowStretch(0, 1)
+
+        self._relayout_examiner_form()
+        self._relayout_planner_card()
+
+    def _relayout_examiner_form(self) -> None:
+        if not hasattr(self, "examiner_form_grid"):
+            return
+
+        examiner_width = self.examiner_card_widget.width() if hasattr(self, "examiner_card_widget") else self.width()
+        compact_form = examiner_width < 320
+
+        self._clear_layout(self.examiner_form_grid)
+        row = 0
+        for _field_key, label, widget in self.examiner_form_rows:
+            if compact_form:
+                self.examiner_form_grid.addWidget(label, row, 0, 1, 2)
+                self.examiner_form_grid.addWidget(widget, row + 1, 0, 1, 2)
+                row += 2
+            else:
+                self.examiner_form_grid.addWidget(label, row, 0)
+                self.examiner_form_grid.addWidget(widget, row, 1)
+                row += 1
+
+        self.examiner_form_grid.setColumnStretch(0, 0 if compact_form else 1)
+        self.examiner_form_grid.setColumnStretch(1, 0 if compact_form else 4)
+
+    def _relayout_planner_card(self) -> None:
+        if not hasattr(self, "relax_music_row"):
+            return
+
+        planner_width = self.planner_card_widget.width() if hasattr(self, "planner_card_widget") else self.width()
+        compact_planner = planner_width < 350
+        direction = QBoxLayout.Direction.TopToBottom if compact_planner else QBoxLayout.Direction.LeftToRight
+        self.relax_music_row.setDirection(direction)
+        self.relax_music_row.setSpacing(6 if compact_planner else 8)
+        self.relax_music_row.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
+
     def _build_log_card(self) -> QFrame:
         card = QFrame()
         card.setObjectName("SidebarCard")
+        card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout = QVBoxLayout(card)
         layout.setContentsMargins(26, 24, 26, 24)
         layout.setSpacing(12)
@@ -1712,16 +1990,18 @@ class ModernMuseWindow(QMainWindow):
         self.log_output.setObjectName("LogOutput")
         self.log_output.setReadOnly(True)
         self.log_output.setPlaceholderText(self._ui("session_log_placeholder"))
+        self.log_output.setMinimumHeight(56)
+        self.log_output.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self.log_card_title)
-        layout.addWidget(self.log_output)
+        layout.addWidget(self.log_output, stretch=1)
         return card
 
-    def _build_examiner_card(self) -> QFrame:
+    def _build_examiner_details_card(self) -> QFrame:
         card = QFrame()
         card.setObjectName("SidebarCard")
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(26, 24, 26, 24)
-        layout.setSpacing(14)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(8)
 
         self.examiner_card_title = QLabel(self._ui("examiner_control"))
         self.examiner_card_title.setObjectName("SectionTitle")
@@ -1733,53 +2013,125 @@ class ModernMuseWindow(QMainWindow):
         layout.addWidget(self.examiner_subtitle_label)
 
         form_grid = QGridLayout()
-        form_grid.setHorizontalSpacing(10)
-        form_grid.setVerticalSpacing(10)
+        self.examiner_form_grid = form_grid
+        form_grid.setHorizontalSpacing(6)
+        form_grid.setVerticalSpacing(6)
 
         self.examiner_name_input = QLineEdit()
+        self.examiner_name_input.setProperty("compact", True)
         self.examiner_id_input = QLineEdit()
+        self.examiner_id_input.setProperty("compact", True)
+        self.examiner_device_id_input = QLineEdit()
+        self.examiner_device_id_input.setProperty("compact", True)
         self.examiner_age_input = QLineEdit()
+        self.examiner_age_input.setProperty("compact", True)
         self.examiner_n_value_input = QLineEdit("2")
+        self.examiner_n_value_input.setProperty("compact", True)
         self.examiner_n_value_input.setMaximumWidth(120)
         self.examiner_note_input = QTextEdit()
-        self.examiner_note_input.setFixedHeight(88)
+        self.examiner_note_input.setProperty("compact", True)
+        self.examiner_note_input.setMinimumHeight(72)
 
         self.examiner_field_labels: dict[str, QLabel] = {}
-        form_fields = [
+        self.examiner_form_rows: list[tuple[str, QLabel, QWidget]] = []
+        primary_fields = [
             ("name", self.examiner_name_input),
             ("id", self.examiner_id_input),
+            ("device_id", self.examiner_device_id_input),
             ("age", self.examiner_age_input),
             ("n_value", self.examiner_n_value_input),
-            ("note", self.examiner_note_input),
         ]
-        for row, (field_key, widget) in enumerate(form_fields):
+        for row, (field_key, widget) in enumerate(primary_fields):
             label = QLabel(self._ui(f"field_{field_key}"))
             label.setObjectName("FieldLabel")
             self.examiner_field_labels[field_key] = label
-            form_grid.addWidget(label, row, 0)
-            form_grid.addWidget(widget, row, 1)
+            self.examiner_form_rows.append((field_key, label, widget))
+        note_row = len(primary_fields) + 1
+        note_label = QLabel(self._ui("field_note"))
+        note_label.setObjectName("FieldLabel")
+        self.examiner_field_labels["note"] = note_label
+        self.examiner_form_rows.append(("note", note_label, self.examiner_note_input))
         form_grid.setColumnStretch(1, 1)
         layout.addLayout(form_grid)
 
-        self.relax_audio_checkbox = QCheckBox(self._ui("field_relax_audio"))
-        layout.addWidget(self.relax_audio_checkbox)
+        layout.addStretch(1)
+        self._relayout_examiner_form()
+        return card
+
+    def _build_session_planner_card(self) -> QFrame:
+        card = QFrame()
+        card.setObjectName("SidebarCard")
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(18, 16, 18, 16)
+        layout.setSpacing(12)
+
+        self.planner_title_label = QLabel(self._ui("planner_title"))
+        self.planner_title_label.setObjectName("SectionTitle")
+        layout.addWidget(self.planner_title_label)
+
+        audio_panel = QFrame()
+        audio_panel.setObjectName("InsetPanel")
+        audio_layout = QVBoxLayout(audio_panel)
+        audio_layout.setContentsMargins(16, 14, 16, 14)
+        audio_layout.setSpacing(10)
+        audio_title = QLabel("Audio")
+        audio_title.setObjectName("InsetTitle")
+        audio_layout.addWidget(audio_title)
+
+        relax_music_row = QHBoxLayout()
+        self.relax_music_row = relax_music_row
+        relax_music_row.setContentsMargins(0, 0, 0, 0)
+        relax_music_row.setSpacing(8)
+        self.relax_music_label = QLabel(self._ui("field_relax_audio"))
+        self.relax_music_label.setObjectName("FieldLabel")
+        relax_music_row.addWidget(self.relax_music_label, 1)
+        switch_cluster = QHBoxLayout()
+        self.relax_music_switch_cluster = switch_cluster
+        switch_cluster.setContentsMargins(0, 0, 0, 0)
+        switch_cluster.setSpacing(8)
+        self.relax_music_switch = SlideSwitch()
+        self.relax_music_switch.setChecked(False)
+        self.relax_music_switch_label = QLabel(self._ui("music_switch_off"))
+        self.relax_music_switch_label.setObjectName("RelaxMusicSwitchCaption")
+        switch_cluster.addWidget(self.relax_music_switch, 0, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        switch_cluster.addWidget(self.relax_music_switch_label, 0, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        relax_music_row.addLayout(switch_cluster)
+        self.relax_music_switch.toggled.connect(self._update_relax_music_switch_text)
+        self.relax_music_switch.toggled.connect(self._sync_music_track_enabled_state)
+        audio_layout.addLayout(relax_music_row)
+
+        self.music_track_label = QLabel(self._ui("field_music_track"))
+        self.music_track_label.setObjectName("FieldLabel")
+        audio_layout.addWidget(self.music_track_label)
+        self.music_track_combo = QComboBox()
+        self.music_track_combo.setProperty("compact", True)
+        for track_id, label_key in self._RELAX_MUSIC_ITEMS:
+            self.music_track_combo.addItem(self._ui(label_key), track_id)
+        audio_layout.addWidget(self.music_track_combo)
+        self._sync_music_track_enabled_state()
+
         self.announcement_volume_label = QLabel(self._ui("field_announcement_volume"))
         self.announcement_volume_label.setObjectName("FieldLabel")
-        layout.addWidget(self.announcement_volume_label)
+        audio_layout.addWidget(self.announcement_volume_label)
         self.announcement_volume_slider = QSlider(Qt.Orientation.Horizontal)
         self.announcement_volume_slider.setRange(0, 100)
         self.announcement_volume_slider.setValue(70)
         self.announcement_volume_slider.setSingleStep(5)
         self.announcement_volume_slider.setPageStep(10)
-        layout.addWidget(self.announcement_volume_slider)
+        audio_layout.addWidget(self.announcement_volume_slider)
+        layout.addWidget(audio_panel)
 
-        self.planner_title_label = QLabel(self._ui("planner_title"))
-        self.planner_title_label.setObjectName("ExaminerHeading")
-        layout.addWidget(self.planner_title_label)
-
+        planner_panel = QFrame()
+        planner_panel.setObjectName("InsetPanel")
+        planner_layout = QVBoxLayout(planner_panel)
+        planner_layout.setContentsMargins(16, 14, 16, 14)
+        planner_layout.setSpacing(10)
+        planner_section_title = QLabel("Session Flow")
+        planner_section_title.setObjectName("InsetTitle")
+        planner_layout.addWidget(planner_section_title)
         planner_grid = QGridLayout()
-        planner_grid.setHorizontalSpacing(10)
-        planner_grid.setVerticalSpacing(10)
+        planner_grid.setHorizontalSpacing(8)
+        planner_grid.setVerticalSpacing(8)
         self.planner_header_labels: list[QLabel] = []
         planner_headers = ["planner_session", "planner_order", "planner_duration"]
         for column, header_key in enumerate(planner_headers):
@@ -1802,6 +2154,8 @@ class ModernMuseWindow(QMainWindow):
             planner_grid.addWidget(stage_label, row, 0)
             order_input = QLineEdit(order_value)
             duration_input = QLineEdit(duration_value)
+            order_input.setProperty("compact", True)
+            duration_input.setProperty("compact", True)
             order_input.setMaximumWidth(70)
             duration_input.setMaximumWidth(120)
             self.stage_order_inputs[stage_key] = order_input
@@ -1809,14 +2163,15 @@ class ModernMuseWindow(QMainWindow):
             planner_grid.addWidget(order_input, row, 1)
             planner_grid.addWidget(duration_input, row, 2)
         planner_grid.setColumnStretch(2, 1)
-        layout.addLayout(planner_grid)
+        planner_layout.addLayout(planner_grid)
 
         self.examiner_help_label = QLabel()
         self.examiner_help_label.setObjectName("ExaminerBody")
         self.examiner_help_label.setWordWrap(True)
-        layout.addWidget(self.examiner_help_label)
-
+        planner_layout.addWidget(self.examiner_help_label)
+        layout.addWidget(planner_panel)
         layout.addStretch(1)
+
         return card
 
     def _connect_events(self) -> None:
@@ -2074,10 +2429,15 @@ class ModernMuseWindow(QMainWindow):
             self.plot_cards[index].canvas.update_series(
                 display_values,
                 self.config.max_points,
-                auto_scale=auto_scale,
-                min_half_range=15.0 if auto_scale else 20.0,
+                auto_scale=True,
+                min_half_range=15.0 if auto_scale else 12.0,
             )
-        self.plot_cards[-1].canvas.update_series(ppg_series, self.config.max_points)
+        self.plot_cards[-1].canvas.update_series(
+            ppg_series,
+            self.config.max_points,
+            auto_scale=True,
+            min_half_range=18.0,
+        )
 
         bpm = hr_series[-1] if hr_series else estimate_hr_from_ppg(ppg_series, self.config.ppg_sampling_rate)
         battery = self.device_manager.current_battery_percent
@@ -2165,9 +2525,11 @@ class ModernMuseWindow(QMainWindow):
     def _collect_examiner_setup(self) -> dict[str, object] | None:
         participant_name = self.examiner_name_input.text().strip()
         participant_id = self.examiner_id_input.text().strip()
+        device_id = self.examiner_device_id_input.text().strip()
         age = self.examiner_age_input.text().strip()
         n_value_text = self.examiner_n_value_input.text().strip()
-        relax_audio_enabled = self.relax_audio_checkbox.isChecked()
+        relax_audio_enabled = self.relax_music_switch.isChecked()
+        relax_music_track = str(self.music_track_combo.currentData() or "binaural_sound")
         announcement_volume = float(self.announcement_volume_slider.value()) / 100.0
         note = self.examiner_note_input.toPlainText().strip()
 
@@ -2176,6 +2538,16 @@ class ModernMuseWindow(QMainWindow):
             return None
         if not participant_id:
             QMessageBox.warning(self, self._ui("examiner_control"), self._ui("id_required"))
+            return None
+        if not participant_id.isdigit():
+            QMessageBox.warning(
+                self,
+                self._ui("examiner_control"),
+                "ID must contain numbers only. Prefix P is added automatically.",
+            )
+            return None
+        if not device_id:
+            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("device_id_required"))
             return None
         if not age:
             QMessageBox.warning(self, self._ui("examiner_control"), self._ui("age_required"))
@@ -2227,13 +2599,36 @@ class ModernMuseWindow(QMainWindow):
         return {
             "participant_name": participant_name,
             "participant_id": participant_id,
+            "device_id": device_id,
             "age": age,
             "n_value": n_value,
             "relax_audio_enabled": relax_audio_enabled,
+            "relax_music_track": relax_music_track,
             "announcement_volume": announcement_volume,
             "note": note,
             "session_stages": stage_plan,
         }
+
+    def _update_relax_music_switch_text(self, _checked: bool | None = None) -> None:
+        if not hasattr(self, "relax_music_switch_label"):
+            return
+        key = "music_switch_on" if self.relax_music_switch.isChecked() else "music_switch_off"
+        self.relax_music_switch_label.setText(self._ui(key))
+
+    def _sync_music_track_enabled_state(self, _checked: bool | None = None) -> None:
+        if hasattr(self, "music_track_combo"):
+            self.music_track_combo.setEnabled(True)
+
+    def _refresh_music_track_combo_labels(self) -> None:
+        if not hasattr(self, "music_track_combo"):
+            return
+        current_track = str(self.music_track_combo.currentData() or "binaural_sound")
+        for index, (_track_id, label_key) in enumerate(self._RELAX_MUSIC_ITEMS):
+            if index < self.music_track_combo.count():
+                self.music_track_combo.setItemText(index, self._ui(label_key))
+        idx = self.music_track_combo.findData(current_track)
+        if idx >= 0:
+            self.music_track_combo.setCurrentIndex(idx)
 
     @staticmethod
     def _resolve_preview_sound_path() -> Path | None:
@@ -2275,6 +2670,7 @@ class ModernMuseWindow(QMainWindow):
         return self._save_context_from_examiner_setup(
             {
                 "participant_id": self.examiner_id_input.text().strip(),
+                "device_id": self.examiner_device_id_input.text().strip(),
                 "session_stages": [
                     {
                         "kind": stage_key,
@@ -2288,13 +2684,14 @@ class ModernMuseWindow(QMainWindow):
     @staticmethod
     def _save_context_from_examiner_setup(examiner_setup: dict[str, object]) -> dict[str, str]:
         participant_id = str(examiner_setup.get("participant_id", "")).strip() or "unknown"
+        device_id = str(examiner_setup.get("device_id", "")).strip() or "unknown_device"
         session_stages = examiner_setup.get("session_stages", [])
         session_label = ModernMuseWindow._session_label_from_stages(session_stages)
-        return {"user_id": participant_id, "session_label": session_label}
+        return {"user_id": participant_id, "device_id": device_id, "session_label": session_label}
 
     @staticmethod
     def _session_label_from_stages(session_stages: object) -> str:
-        mapping = {"relax": "A", "game": "B", "break": "C"}
+        mapping = {"relax": "A", "break": "B", "game": "C"}
         ordered: list[tuple[int, str]] = []
         for stage in session_stages if isinstance(session_stages, list) else []:
             if not isinstance(stage, dict):
@@ -2351,6 +2748,7 @@ class ModernMuseWindow(QMainWindow):
         self.launched_games = remaining
 
     def _set_stream_label(self, label: QLabel, name: str, connected: bool) -> None:
+        scale = self._responsive_scale()
         color = "#065f46" if connected else "#92400e"
         background = "#ecfdf5" if connected else "#fff7ed"
         border = "#a7f3d0" if connected else "#fed7aa"
@@ -2363,14 +2761,16 @@ class ModernMuseWindow(QMainWindow):
                 color: {color};
                 background: {background};
                 border: 1px solid {border};
-                border-radius: 14px;
-                padding: 10px 12px;
+                border-radius: {self._clamp_int(14 * scale, 12, 18)}px;
+                padding: {self._clamp_int(9 * scale, 8, 12)}px {self._clamp_int(12 * scale, 10, 16)}px;
+                font-size: {self._clamp_int(12 * scale, 11, 14)}px;
                 font-weight: 700;
             }}
             """
         )
 
     def _set_badge_style(self, label: QLabel, *, active: bool, accent: str) -> None:
+        scale = self._responsive_scale()
         if accent == "orange":
             color = "#9a3412" if active else "#7c2d12"
             background = "#ffedd5" if active else "#fff7ed"
@@ -2385,9 +2785,9 @@ class ModernMuseWindow(QMainWindow):
                 color: {color};
                 background: {background};
                 border: 1px solid {border};
-                border-radius: 18px;
-                padding: 10px 18px;
-                font-size: 13px;
+                border-radius: {self._clamp_int(18 * scale, 14, 22)}px;
+                padding: {self._clamp_int(9 * scale, 8, 12)}px {self._clamp_int(17 * scale, 14, 22)}px;
+                font-size: {self._clamp_int(13 * scale, 11, 15)}px;
                 font-weight: 800;
             }}
             """
@@ -2402,4 +2802,4 @@ class ModernMuseWindow(QMainWindow):
 
     def resizeEvent(self, event) -> None:  # noqa: N802
         super().resizeEvent(event)
-        self._relayout_signal_area()
+        self._apply_responsive_layout()

@@ -31,12 +31,30 @@ EEG/
 - PyQt6
 - Tkinter (for game window)
 
+## Setup
+
+Create a fresh virtual environment from the project root:
+
+```bash
+chmod +x setup_venv.sh
+./setup_venv.sh
+source .venv/bin/activate
+```
+
+The script recreates `.venv`, upgrades `pip`, installs the desktop app dependencies from `requirements.txt`, and runs a quick import smoke test.
+
+If you still see a Qt platform plugin error on macOS, clear any inherited Qt variables before launching:
+
+```bash
+unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH QT_QPA_PLATFORM
+```
+
 ## Run
 
 From project root:
 
 ```bash
-python main.py
+.venv/bin/python main.py
 ```
 
 ## UI Overview

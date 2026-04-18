@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import shutil
+import subprocess
 import threading
 import time
 from datetime import datetime
@@ -20,6 +22,8 @@ from PyQt6.QtWidgets import (
     QScrollArea,
     QPushButton,
     QPlainTextEdit,
+    QApplication,
+    QSlider,
     QSizePolicy,
     QSplitter,
     QTabWidget,
@@ -100,6 +104,7 @@ class ModernMuseWindow(QMainWindow):
             "field_n_value": "N Value",
             "field_note": "Note",
             "field_relax_audio": "Play alpha audio during Relax",
+            "field_announcement_volume": "Announcement volume",
             "planner_title": "Session Planner",
             "planner_session": "Session",
             "planner_order": "Order",
@@ -181,6 +186,7 @@ class ModernMuseWindow(QMainWindow):
             "field_n_value": "N-Wert",
             "field_note": "Notiz",
             "field_relax_audio": "Alpha-Audio waehrend Entspannung abspielen",
+            "field_announcement_volume": "Lautstaerke der Ansage",
             "planner_title": "Sitzungsplaner",
             "planner_session": "Sitzung",
             "planner_order": "Reihenfolge",
@@ -262,6 +268,7 @@ class ModernMuseWindow(QMainWindow):
             "field_n_value": "Giá trị N",
             "field_note": "Ghi chú",
             "field_relax_audio": "Phát âm thanh alpha trong lúc Thư giãn",
+            "field_announcement_volume": "Âm lượng thông báo",
             "planner_title": "Lập kế hoạch phiên",
             "planner_session": "Phiên",
             "planner_order": "Thứ tự",
@@ -343,6 +350,7 @@ class ModernMuseWindow(QMainWindow):
             "field_n_value": "N 值",
             "field_note": "备注",
             "field_relax_audio": "放松阶段播放 alpha 音频",
+            "field_announcement_volume": "提示音音量",
             "planner_title": "会话计划",
             "planner_session": "阶段",
             "planner_order": "顺序",
@@ -424,6 +432,7 @@ class ModernMuseWindow(QMainWindow):
             "field_n_value": "قيمة N",
             "field_note": "ملاحظة",
             "field_relax_audio": "تشغيل صوت ألفا أثناء الاسترخاء",
+            "field_announcement_volume": "مستوى صوت التنبيه",
             "planner_title": "مخطط الجلسة",
             "planner_session": "الجلسة",
             "planner_order": "الترتيب",
@@ -458,6 +467,547 @@ class ModernMuseWindow(QMainWindow):
             "game_duration_positive": "مدة اللعبة يجب أن تكون أكبر من الصفر.",
         },
     }
+
+    _EXTRA_LANGUAGE_CODES = ("ko", "ja", "fr", "es", "ru", "it", "pt")
+    _UI_LANGUAGE_OVERRIDES = {
+        "ko": {
+            "window_title": "EEG 분석",
+            "tab_analyse": "분석",
+            "tab_experiment": "실험 설정",
+            "hero_title": "EEG 분석",
+            "hero_subtitle": "CuongFX 제작",
+            "idle": "대기",
+            "disconnected": "연결 끊김",
+            "connected": "장치 연결됨",
+            "recording_off": "기록 안 함",
+            "recording_on": "기록 중",
+            "metric_connection": "연결",
+            "metric_recording": "기록",
+            "metric_battery": "배터리",
+            "metric_hr": "심박수",
+            "metric_stream_state": "스트림 상태",
+            "metric_capture_mode": "캡처 모드",
+            "metric_device_battery": "장치 배터리",
+            "metric_battery_unavailable": "배터리 정보 없음",
+            "metric_latest_estimate": "최신 추정치",
+            "metric_live": "실시간",
+            "metric_offline": "오프라인",
+            "metric_standby": "대기",
+            "connect_device": "장치 연결",
+            "disconnect_device": "장치 연결 해제",
+            "record_data": "데이터 기록",
+            "stop_recording": "기록 중지",
+            "start_game": "게임 시작",
+            "play_demo": "데모 실행",
+            "games_title": "게임",
+            "examiner_control": "검사자 제어",
+            "selected_device_none": "선택된 장치: 없음",
+            "last_save_none": "저장된 기록 없음",
+            "last_save_prefix": "최근 저장: ",
+            "session_log": "세션 로그",
+            "session_log_placeholder": "연결 이벤트, 기록 상태, 게임 실행 로그가 여기에 표시됩니다.",
+            "stream_connected": "{name} 스트림 연결됨",
+            "stream_waiting": "{name} 스트림 대기 중",
+            "no_game_selected": "게임이 선택되지 않았습니다.",
+            "game_auto_note": "장치가 연결되어 있고 기록이 꺼져 있으면 게임 시작 시 자동으로 기록을 시작합니다.",
+            "no_device_recording": "먼저 장치를 연결하세요. Muse 스트림이 연결되어야 기록할 수 있습니다.",
+            "start_game_no_device": "게임은 열리지만 장치가 연결되지 않아 EEG/PPG 기록 명령은 무시됩니다.",
+            "record_data_title": "데이터 기록",
+            "start_game_title": "게임 시작",
+            "connect_device_title": "장치 연결",
+            "disconnect_device_title": "장치 연결 해제",
+            "examiner_default_subtitle": "게임 시작 전에 참가자 정보와 세션 세부사항을 설정하세요.",
+            "field_name": "이름",
+            "field_id": "ID",
+            "field_age": "나이",
+            "field_n_value": "N 값",
+            "field_note": "메모",
+            "field_relax_audio": "휴식 중 알파 오디오 재생",
+            "field_announcement_volume": "안내 음량",
+            "planner_title": "세션 계획",
+            "planner_session": "세션",
+            "planner_order": "순서",
+            "planner_duration": "시간 (분)",
+            "stage_relax": "휴식",
+            "stage_break": "쉬는 시간",
+            "stage_game": "게임",
+            "planner_help": "순서 1, 2, 3을 각각 한 번만 사용하세요. 단계 시간을 0으로 두면 건너뛰지만 게임은 0보다 커야 합니다.",
+            "examiner_language": "언어: {language}",
+            "name_required": "이름은 필수입니다.",
+            "id_required": "ID는 필수입니다.",
+            "age_required": "나이는 필수입니다.",
+            "n_value_required": "N 값은 필수입니다.",
+            "n_value_integer": "N 값은 정수여야 합니다.",
+            "n_value_positive": "N 값은 1 이상이어야 합니다.",
+            "order_whole_number": "{stage} 순서는 정수여야 합니다.",
+            "duration_number": "{stage} 시간은 숫자여야 합니다.",
+            "order_range": "{stage} 순서는 1, 2, 3 중 하나여야 합니다.",
+            "duration_negative": "{stage} 시간은 음수일 수 없습니다.",
+            "order_unique": "휴식, 쉬는 시간, 게임은 1, 2, 3을 각각 한 번씩 사용해야 합니다.",
+            "game_duration_positive": "게임 시간은 0보다 커야 합니다.",
+        },
+        "ja": {
+            "window_title": "EEG 解析",
+            "tab_analyse": "解析",
+            "tab_experiment": "実験設定",
+            "hero_title": "EEG 解析",
+            "hero_subtitle": "CuongFX により設計",
+            "idle": "待機",
+            "disconnected": "未接続",
+            "connected": "デバイス接続済み",
+            "recording_off": "未記録",
+            "recording_on": "記録中",
+            "metric_connection": "接続",
+            "metric_recording": "記録",
+            "metric_battery": "バッテリー",
+            "metric_hr": "心拍数",
+            "metric_stream_state": "ストリーム状態",
+            "metric_capture_mode": "記録モード",
+            "metric_device_battery": "デバイスバッテリー",
+            "metric_battery_unavailable": "バッテリー情報なし",
+            "metric_latest_estimate": "最新推定値",
+            "metric_live": "ライブ",
+            "metric_offline": "オフライン",
+            "metric_standby": "待機",
+            "connect_device": "デバイス接続",
+            "disconnect_device": "デバイス切断",
+            "record_data": "データ記録",
+            "stop_recording": "記録停止",
+            "start_game": "ゲーム開始",
+            "play_demo": "デモ再生",
+            "games_title": "ゲーム",
+            "examiner_control": "試験者コントロール",
+            "selected_device_none": "選択中のデバイス: なし",
+            "last_save_none": "保存された記録はありません",
+            "last_save_prefix": "最終保存: ",
+            "session_log": "セッションログ",
+            "session_log_placeholder": "接続イベント、記録状態、ゲーム起動ログがここに表示されます。",
+            "stream_connected": "{name} ストリーム接続済み",
+            "stream_waiting": "{name} ストリーム待機中",
+            "no_game_selected": "ゲームが選択されていません。",
+            "game_auto_note": "デバイス接続済みかつ未記録の場合、ゲーム開始時に自動で記録を開始します。",
+            "no_device_recording": "先にデバイスを接続してください。Muse ストリーム接続後に記録できます。",
+            "start_game_no_device": "ゲームは起動しますが、デバイス未接続のため EEG/PPG 記録コマンドは無視されます。",
+            "record_data_title": "データ記録",
+            "start_game_title": "ゲーム開始",
+            "connect_device_title": "デバイス接続",
+            "disconnect_device_title": "デバイス切断",
+            "examiner_default_subtitle": "ゲーム開始前に参加者情報とセッション詳細を設定してください。",
+            "field_name": "名前",
+            "field_id": "ID",
+            "field_age": "年齢",
+            "field_n_value": "N 値",
+            "field_note": "メモ",
+            "field_relax_audio": "Relax 中に alpha 音声を再生",
+            "field_announcement_volume": "案内音量",
+            "planner_title": "セッション計画",
+            "planner_session": "セッション",
+            "planner_order": "順序",
+            "planner_duration": "時間 (分)",
+            "stage_relax": "Relax",
+            "stage_break": "Break",
+            "stage_game": "Game",
+            "planner_help": "順序 1, 2, 3 をそれぞれ一度だけ使ってください。時間を 0 にするとその段階を飛ばしますが、Game は 0 より大きくする必要があります。",
+            "examiner_language": "言語: {language}",
+            "name_required": "名前は必須です。",
+            "id_required": "ID は必須です。",
+            "age_required": "年齢は必須です。",
+            "n_value_required": "N 値は必須です。",
+            "n_value_integer": "N 値は整数である必要があります。",
+            "n_value_positive": "N 値は 1 以上である必要があります。",
+            "order_whole_number": "{stage} の順序は整数である必要があります。",
+            "duration_number": "{stage} の時間は数値である必要があります。",
+            "order_range": "{stage} の順序は 1、2、3 のいずれかである必要があります。",
+            "duration_negative": "{stage} の時間は負の値にできません。",
+            "order_unique": "Relax、Break、Game では 1、2、3 をそれぞれ一度ずつ使う必要があります。",
+            "game_duration_positive": "Game の時間は 0 より大きくする必要があります。",
+        },
+        "fr": {
+            "window_title": "Analyse EEG",
+            "tab_analyse": "Analyse",
+            "tab_experiment": "Configuration de l'experience",
+            "hero_title": "Analyse EEG",
+            "hero_subtitle": "Concu par CuongFX",
+            "idle": "Inactif",
+            "disconnected": "Deconnecte",
+            "connected": "Appareil connecte",
+            "recording_off": "Pas d'enregistrement",
+            "recording_on": "Enregistrement",
+            "metric_connection": "Connexion",
+            "metric_recording": "Enregistrement",
+            "metric_battery": "Batterie",
+            "metric_hr": "Frequence cardiaque",
+            "metric_stream_state": "Etat du flux",
+            "metric_capture_mode": "Mode de capture",
+            "metric_device_battery": "Batterie appareil",
+            "metric_battery_unavailable": "Batterie indisponible",
+            "metric_latest_estimate": "Derniere estimation",
+            "metric_live": "En direct",
+            "metric_offline": "Hors ligne",
+            "metric_standby": "Veille",
+            "connect_device": "Connecter l'appareil",
+            "disconnect_device": "Deconnecter l'appareil",
+            "record_data": "Enregistrer les donnees",
+            "stop_recording": "Arreter l'enregistrement",
+            "start_game": "Demarrer le jeu",
+            "play_demo": "Lancer la demo",
+            "games_title": "Jeux",
+            "examiner_control": "Controle examinateur",
+            "selected_device_none": "Appareil selectionne: aucun",
+            "last_save_none": "Aucun enregistrement sauvegarde",
+            "last_save_prefix": "Derniere sauvegarde: ",
+            "session_log": "Journal de session",
+            "session_log_placeholder": "Les evenements de connexion, l'etat d'enregistrement et les lancements de jeu apparaissent ici.",
+            "stream_connected": "Flux {name} connecte",
+            "stream_waiting": "Flux {name} en attente",
+            "no_game_selected": "Aucun jeu selectionne.",
+            "game_auto_note": "Demarrer un jeu lance automatiquement l'enregistrement si un appareil est connecte et que l'enregistrement est inactif.",
+            "no_device_recording": "Connectez d'abord un appareil. L'enregistrement fonctionne seulement apres connexion du flux Muse.",
+            "start_game_no_device": "Le jeu va s'ouvrir, mais les commandes d'enregistrement EEG/PPG seront ignorees car aucun appareil n'est connecte.",
+            "record_data_title": "Enregistrer les donnees",
+            "start_game_title": "Demarrer le jeu",
+            "connect_device_title": "Connecter l'appareil",
+            "disconnect_device_title": "Deconnecter l'appareil",
+            "examiner_default_subtitle": "Configurez les informations du participant et les details de session avant de lancer le jeu.",
+            "field_name": "Nom",
+            "field_id": "ID",
+            "field_age": "Age",
+            "field_n_value": "Valeur N",
+            "field_note": "Note",
+            "field_relax_audio": "Jouer l'audio alpha pendant Relax",
+            "field_announcement_volume": "Volume de l'annonce",
+            "planner_title": "Planificateur de session",
+            "planner_session": "Session",
+            "planner_order": "Ordre",
+            "planner_duration": "Duree (minutes)",
+            "stage_relax": "Relax",
+            "stage_break": "Pause",
+            "stage_game": "Jeu",
+            "planner_help": "Utilisez 1, 2 et 3 une seule fois chacun. Une duree de 0 saute l'etape, mais Game doit etre > 0.",
+            "examiner_language": "Langue : {language}",
+            "name_required": "Le nom est obligatoire.",
+            "id_required": "L'ID est obligatoire.",
+            "age_required": "L'age est obligatoire.",
+            "n_value_required": "La valeur N est obligatoire.",
+            "n_value_integer": "La valeur N doit etre un entier.",
+            "n_value_positive": "La valeur N doit etre superieure ou egale a 1.",
+            "order_whole_number": "L'ordre de {stage} doit etre un entier.",
+            "duration_number": "La duree de {stage} doit etre un nombre.",
+            "order_range": "L'ordre de {stage} doit etre 1, 2 ou 3.",
+            "duration_negative": "La duree de {stage} ne peut pas etre negative.",
+            "order_unique": "Relax, Pause et Jeu doivent utiliser 1, 2 et 3 exactement une fois.",
+            "game_duration_positive": "La duree du jeu doit etre superieure a zero.",
+        },
+        "es": {
+            "window_title": "Analisis EEG",
+            "tab_analyse": "Analisis",
+            "tab_experiment": "Configuracion del experimento",
+            "hero_title": "Analisis EEG",
+            "hero_subtitle": "Disenado por CuongFX",
+            "idle": "Inactivo",
+            "disconnected": "Desconectado",
+            "connected": "Dispositivo conectado",
+            "recording_off": "Sin grabacion",
+            "recording_on": "Grabando",
+            "metric_connection": "Conexion",
+            "metric_recording": "Grabacion",
+            "metric_battery": "Bateria",
+            "metric_hr": "Frecuencia cardiaca",
+            "metric_stream_state": "Estado del flujo",
+            "metric_capture_mode": "Modo de captura",
+            "metric_device_battery": "Bateria del dispositivo",
+            "metric_battery_unavailable": "Bateria no disponible",
+            "metric_latest_estimate": "Ultima estimacion",
+            "metric_live": "En vivo",
+            "metric_offline": "Sin conexion",
+            "metric_standby": "En espera",
+            "connect_device": "Conectar dispositivo",
+            "disconnect_device": "Desconectar dispositivo",
+            "record_data": "Grabar datos",
+            "stop_recording": "Detener grabacion",
+            "start_game": "Iniciar juego",
+            "play_demo": "Iniciar demo",
+            "games_title": "Juegos",
+            "examiner_control": "Control del examinador",
+            "selected_device_none": "Dispositivo seleccionado: ninguno",
+            "last_save_none": "No hay grabacion guardada",
+            "last_save_prefix": "Ultimo guardado: ",
+            "session_log": "Registro de sesion",
+            "session_log_placeholder": "Los eventos de conexion, estado de grabacion y lanzamientos de juego aparecen aqui.",
+            "stream_connected": "Flujo {name} conectado",
+            "stream_waiting": "Flujo {name} en espera",
+            "no_game_selected": "Ningun juego seleccionado.",
+            "game_auto_note": "Iniciar un juego comenzara automaticamente la grabacion si hay un dispositivo conectado y no se esta grabando.",
+            "no_device_recording": "Conecta primero un dispositivo. La grabacion solo funciona cuando el flujo Muse esta conectado.",
+            "start_game_no_device": "El juego se abrira, pero los comandos de grabacion EEG/PPG se ignoraran porque no hay dispositivo conectado.",
+            "record_data_title": "Grabar datos",
+            "start_game_title": "Iniciar juego",
+            "connect_device_title": "Conectar dispositivo",
+            "disconnect_device_title": "Desconectar dispositivo",
+            "examiner_default_subtitle": "Configura la informacion del participante y los detalles de la sesion antes de iniciar el juego.",
+            "field_name": "Nombre",
+            "field_id": "ID",
+            "field_age": "Edad",
+            "field_n_value": "Valor N",
+            "field_note": "Nota",
+            "field_relax_audio": "Reproducir audio alpha durante Relax",
+            "field_announcement_volume": "Volumen del anuncio",
+            "planner_title": "Planificador de sesion",
+            "planner_session": "Sesion",
+            "planner_order": "Orden",
+            "planner_duration": "Duracion (minutos)",
+            "stage_relax": "Relax",
+            "stage_break": "Descanso",
+            "stage_game": "Juego",
+            "planner_help": "Usa 1, 2 y 3 exactamente una vez. Una duracion de 0 omite la etapa, pero Game debe ser mayor que 0.",
+            "examiner_language": "Idioma: {language}",
+            "name_required": "El nombre es obligatorio.",
+            "id_required": "El ID es obligatorio.",
+            "age_required": "La edad es obligatoria.",
+            "n_value_required": "El valor N es obligatorio.",
+            "n_value_integer": "El valor N debe ser un numero entero.",
+            "n_value_positive": "El valor N debe ser al menos 1.",
+            "order_whole_number": "El orden de {stage} debe ser un numero entero.",
+            "duration_number": "La duracion de {stage} debe ser un numero.",
+            "order_range": "El orden de {stage} debe ser 1, 2 o 3.",
+            "duration_negative": "La duracion de {stage} no puede ser negativa.",
+            "order_unique": "Relax, Descanso y Juego deben usar 1, 2 y 3 exactamente una vez.",
+            "game_duration_positive": "La duracion del juego debe ser mayor que cero.",
+        },
+        "ru": {
+            "window_title": "EEG Анализ",
+            "tab_analyse": "Анализ",
+            "tab_experiment": "Настройка эксперимента",
+            "hero_title": "EEG Анализ",
+            "hero_subtitle": "Разработано CuongFX",
+            "idle": "Ожидание",
+            "disconnected": "Отключено",
+            "connected": "Устройство подключено",
+            "recording_off": "Не записывается",
+            "recording_on": "Запись",
+            "metric_connection": "Подключение",
+            "metric_recording": "Запись",
+            "metric_battery": "Батарея",
+            "metric_hr": "Пульс",
+            "metric_stream_state": "Состояние потока",
+            "metric_capture_mode": "Режим записи",
+            "metric_device_battery": "Батарея устройства",
+            "metric_battery_unavailable": "Батарея недоступна",
+            "metric_latest_estimate": "Последняя оценка",
+            "metric_live": "Онлайн",
+            "metric_offline": "Офлайн",
+            "metric_standby": "Ожидание",
+            "connect_device": "Подключить устройство",
+            "disconnect_device": "Отключить устройство",
+            "record_data": "Запись данных",
+            "stop_recording": "Остановить запись",
+            "start_game": "Запустить игру",
+            "play_demo": "Запустить демо",
+            "games_title": "Игры",
+            "examiner_control": "Панель экзаменатора",
+            "selected_device_none": "Выбранное устройство: нет",
+            "last_save_none": "Сохраненных записей нет",
+            "last_save_prefix": "Последнее сохранение: ",
+            "session_log": "Журнал сессии",
+            "session_log_placeholder": "События подключения, состояние записи и запуск игр отображаются здесь.",
+            "stream_connected": "Поток {name} подключен",
+            "stream_waiting": "Поток {name} ожидает",
+            "no_game_selected": "Игра не выбрана.",
+            "game_auto_note": "При запуске игры запись начнется автоматически, если устройство подключено и запись не активна.",
+            "no_device_recording": "Сначала подключите устройство. Запись работает только после подключения потока Muse.",
+            "start_game_no_device": "Игра откроется, но команды записи EEG/PPG будут игнорироваться, так как устройство не подключено.",
+            "record_data_title": "Запись данных",
+            "start_game_title": "Запуск игры",
+            "connect_device_title": "Подключить устройство",
+            "disconnect_device_title": "Отключить устройство",
+            "examiner_default_subtitle": "Настройте данные участника и параметры сессии перед запуском игры.",
+            "field_name": "Имя",
+            "field_id": "ID",
+            "field_age": "Возраст",
+            "field_n_value": "Значение N",
+            "field_note": "Заметка",
+            "field_relax_audio": "Воспроизводить alpha-аудио во время Relax",
+            "field_announcement_volume": "Громкость сигнала",
+            "planner_title": "План сессии",
+            "planner_session": "Сессия",
+            "planner_order": "Порядок",
+            "planner_duration": "Длительность (минуты)",
+            "stage_relax": "Relax",
+            "stage_break": "Перерыв",
+            "stage_game": "Игра",
+            "planner_help": "Используйте 1, 2 и 3 ровно по одному разу. Длительность 0 пропускает этап, но Game должна быть больше 0.",
+            "examiner_language": "Язык: {language}",
+            "name_required": "Имя обязательно.",
+            "id_required": "ID обязателен.",
+            "age_required": "Возраст обязателен.",
+            "n_value_required": "Значение N обязательно.",
+            "n_value_integer": "Значение N должно быть целым числом.",
+            "n_value_positive": "Значение N должно быть не меньше 1.",
+            "order_whole_number": "Порядок для {stage} должен быть целым числом.",
+            "duration_number": "Длительность для {stage} должна быть числом.",
+            "order_range": "Порядок для {stage} должен быть 1, 2 или 3.",
+            "duration_negative": "Длительность для {stage} не может быть отрицательной.",
+            "order_unique": "Relax, Перерыв и Игра должны использовать 1, 2 и 3 ровно по одному разу.",
+            "game_duration_positive": "Длительность игры должна быть больше нуля.",
+        },
+        "it": {
+            "window_title": "Analisi EEG",
+            "tab_analyse": "Analisi",
+            "tab_experiment": "Impostazione esperimento",
+            "hero_title": "Analisi EEG",
+            "hero_subtitle": "Progettato da CuongFX",
+            "idle": "Inattivo",
+            "disconnected": "Disconnesso",
+            "connected": "Dispositivo connesso",
+            "recording_off": "Nessuna registrazione",
+            "recording_on": "Registrazione",
+            "metric_connection": "Connessione",
+            "metric_recording": "Registrazione",
+            "metric_battery": "Batteria",
+            "metric_hr": "Frequenza cardiaca",
+            "metric_stream_state": "Stato stream",
+            "metric_capture_mode": "Modalita acquisizione",
+            "metric_device_battery": "Batteria dispositivo",
+            "metric_battery_unavailable": "Batteria non disponibile",
+            "metric_latest_estimate": "Ultima stima",
+            "metric_live": "Live",
+            "metric_offline": "Offline",
+            "metric_standby": "Standby",
+            "connect_device": "Connetti dispositivo",
+            "disconnect_device": "Disconnetti dispositivo",
+            "record_data": "Registra dati",
+            "stop_recording": "Ferma registrazione",
+            "start_game": "Avvia gioco",
+            "play_demo": "Avvia demo",
+            "games_title": "Giochi",
+            "examiner_control": "Controllo esaminatore",
+            "selected_device_none": "Dispositivo selezionato: nessuno",
+            "last_save_none": "Nessuna registrazione salvata",
+            "last_save_prefix": "Ultimo salvataggio: ",
+            "session_log": "Log sessione",
+            "session_log_placeholder": "Eventi di connessione, stato registrazione e avvii gioco appaiono qui.",
+            "stream_connected": "Stream {name} connesso",
+            "stream_waiting": "Stream {name} in attesa",
+            "no_game_selected": "Nessun gioco selezionato.",
+            "game_auto_note": "L'avvio di un gioco avviera automaticamente la registrazione se un dispositivo e gia connesso e la registrazione non e attiva.",
+            "no_device_recording": "Connetti prima un dispositivo. La registrazione funziona solo dopo la connessione dello stream Muse.",
+            "start_game_no_device": "Il gioco si aprira, ma i comandi di registrazione EEG/PPG saranno ignorati perche nessun dispositivo e connesso.",
+            "record_data_title": "Registra dati",
+            "start_game_title": "Avvia gioco",
+            "connect_device_title": "Connetti dispositivo",
+            "disconnect_device_title": "Disconnetti dispositivo",
+            "examiner_default_subtitle": "Configura le informazioni del partecipante e i dettagli della sessione prima di avviare il gioco.",
+            "field_name": "Nome",
+            "field_id": "ID",
+            "field_age": "Eta",
+            "field_n_value": "Valore N",
+            "field_note": "Nota",
+            "field_relax_audio": "Riproduci audio alpha durante Relax",
+            "field_announcement_volume": "Volume annuncio",
+            "planner_title": "Pianificatore sessione",
+            "planner_session": "Sessione",
+            "planner_order": "Ordine",
+            "planner_duration": "Durata (minuti)",
+            "stage_relax": "Relax",
+            "stage_break": "Pausa",
+            "stage_game": "Gioco",
+            "planner_help": "Usa 1, 2 e 3 una sola volta ciascuno. Una durata di 0 salta la fase, ma Game deve essere maggiore di 0.",
+            "examiner_language": "Lingua: {language}",
+            "name_required": "Il nome e obbligatorio.",
+            "id_required": "L'ID e obbligatorio.",
+            "age_required": "L'eta e obbligatoria.",
+            "n_value_required": "Il valore N e obbligatorio.",
+            "n_value_integer": "Il valore N deve essere un numero intero.",
+            "n_value_positive": "Il valore N deve essere almeno 1.",
+            "order_whole_number": "L'ordine di {stage} deve essere un numero intero.",
+            "duration_number": "La durata di {stage} deve essere un numero.",
+            "order_range": "L'ordine di {stage} deve essere 1, 2 o 3.",
+            "duration_negative": "La durata di {stage} non puo essere negativa.",
+            "order_unique": "Relax, Pausa e Gioco devono usare 1, 2 e 3 esattamente una volta.",
+            "game_duration_positive": "La durata del gioco deve essere maggiore di zero.",
+        },
+        "pt": {
+            "window_title": "Analise EEG",
+            "tab_analyse": "Analise",
+            "tab_experiment": "Configuracao do experimento",
+            "hero_title": "Analise EEG",
+            "hero_subtitle": "Projetado por CuongFX",
+            "idle": "Inativo",
+            "disconnected": "Desconectado",
+            "connected": "Dispositivo conectado",
+            "recording_off": "Sem gravacao",
+            "recording_on": "Gravando",
+            "metric_connection": "Conexao",
+            "metric_recording": "Gravacao",
+            "metric_battery": "Bateria",
+            "metric_hr": "Frequencia cardiaca",
+            "metric_stream_state": "Estado do stream",
+            "metric_capture_mode": "Modo de captura",
+            "metric_device_battery": "Bateria do dispositivo",
+            "metric_battery_unavailable": "Bateria indisponivel",
+            "metric_latest_estimate": "Ultima estimativa",
+            "metric_live": "Ao vivo",
+            "metric_offline": "Offline",
+            "metric_standby": "Espera",
+            "connect_device": "Conectar dispositivo",
+            "disconnect_device": "Desconectar dispositivo",
+            "record_data": "Gravar dados",
+            "stop_recording": "Parar gravacao",
+            "start_game": "Iniciar jogo",
+            "play_demo": "Iniciar demo",
+            "games_title": "Jogos",
+            "examiner_control": "Controle do examinador",
+            "selected_device_none": "Dispositivo selecionado: nenhum",
+            "last_save_none": "Nenhuma gravacao salva",
+            "last_save_prefix": "Ultimo salvamento: ",
+            "session_log": "Log da sessao",
+            "session_log_placeholder": "Eventos de conexao, estado de gravacao e inicializacoes de jogo aparecem aqui.",
+            "stream_connected": "Stream {name} conectado",
+            "stream_waiting": "Stream {name} aguardando",
+            "no_game_selected": "Nenhum jogo selecionado.",
+            "game_auto_note": "Iniciar um jogo comeca automaticamente a gravacao se um dispositivo estiver conectado e a gravacao nao estiver ativa.",
+            "no_device_recording": "Conecte um dispositivo primeiro. A gravacao so funciona apos o stream Muse estar conectado.",
+            "start_game_no_device": "O jogo sera aberto, mas os comandos de gravacao EEG/PPG serao ignorados porque nao ha dispositivo conectado.",
+            "record_data_title": "Gravar dados",
+            "start_game_title": "Iniciar jogo",
+            "connect_device_title": "Conectar dispositivo",
+            "disconnect_device_title": "Desconectar dispositivo",
+            "examiner_default_subtitle": "Configure as informacoes do participante e os detalhes da sessao antes de iniciar o jogo.",
+            "field_name": "Nome",
+            "field_id": "ID",
+            "field_age": "Idade",
+            "field_n_value": "Valor N",
+            "field_note": "Nota",
+            "field_relax_audio": "Tocar audio alpha durante Relax",
+            "field_announcement_volume": "Volume do anuncio",
+            "planner_title": "Planejador de sessao",
+            "planner_session": "Sessao",
+            "planner_order": "Ordem",
+            "planner_duration": "Duracao (minutos)",
+            "stage_relax": "Relax",
+            "stage_break": "Pausa",
+            "stage_game": "Jogo",
+            "planner_help": "Use 1, 2 e 3 exatamente uma vez cada. Duracao 0 ignora a etapa, mas Game deve ser maior que 0.",
+            "examiner_language": "Idioma: {language}",
+            "name_required": "O nome e obrigatorio.",
+            "id_required": "O ID e obrigatorio.",
+            "age_required": "A idade e obrigatoria.",
+            "n_value_required": "O valor N e obrigatorio.",
+            "n_value_integer": "O valor N deve ser um numero inteiro.",
+            "n_value_positive": "O valor N deve ser pelo menos 1.",
+            "order_whole_number": "A ordem de {stage} deve ser um numero inteiro.",
+            "duration_number": "A duracao de {stage} deve ser um numero.",
+            "order_range": "A ordem de {stage} deve ser 1, 2 ou 3.",
+            "duration_negative": "A duracao de {stage} nao pode ser negativa.",
+            "order_unique": "Relax, Pausa e Jogo devem usar 1, 2 e 3 exatamente uma vez.",
+            "game_duration_positive": "A duracao do jogo deve ser maior que zero.",
+        },
+    }
+    for _code in _EXTRA_LANGUAGE_CODES:
+        _bundle = dict(UI_TRANSLATIONS["en"])
+        _bundle.update(_UI_LANGUAGE_OVERRIDES.get(_code, {}))
+        UI_TRANSLATIONS[_code] = _bundle
+    del _code, _bundle
 
     def __init__(self, config: AppConfig | None = None) -> None:
         super().__init__()
@@ -501,6 +1051,13 @@ class ModernMuseWindow(QMainWindow):
             "vi": "Tiếng Việt",
             "zh": "中文",
             "ar": "العربية",
+            "ko": "한국어",
+            "ja": "日本語",
+            "fr": "Français",
+            "es": "Español",
+            "ru": "Русский",
+            "it": "Italiano",
+            "pt": "Português",
         }
         self.software_languages = {
             "en": ("🇬🇧 English", "English"),
@@ -508,8 +1065,20 @@ class ModernMuseWindow(QMainWindow):
             "vi": ("🇻🇳 Tiếng Việt", "Tiếng Việt"),
             "zh": ("🇨🇳 中文", "中文"),
             "ar": ("🇸🇦 العربية", "العربية"),
+            "ko": ("🇰🇷 한국어", "한국어"),
+            "ja": ("🇯🇵 日本語", "日本語"),
+            "fr": ("🇫🇷 Français", "Français"),
+            "es": ("🇪🇸 Español", "Español"),
+            "ru": ("🇷🇺 Русский", "Русский"),
+            "it": ("🇮🇹 Italiano", "Italiano"),
+            "pt": ("🇵🇹 Português", "Português"),
         }
         self.software_language_code = "en"
+        self.afplay_command = shutil.which("afplay")
+        self.preview_sound_path = self._resolve_preview_sound_path()
+        self.announcement_preview_timer = QTimer(self)
+        self.announcement_preview_timer.setSingleShot(True)
+        self.announcement_preview_timer.timeout.connect(self._play_announcement_preview_sound)
 
         self._setup_window()
         self._build_ui()
@@ -562,6 +1131,7 @@ class ModernMuseWindow(QMainWindow):
             for field_key, label in self.examiner_field_labels.items():
                 label.setText(self._ui(f"field_{field_key}"))
             self.relax_audio_checkbox.setText(self._ui("field_relax_audio"))
+            self.announcement_volume_label.setText(self._ui("field_announcement_volume"))
             for header, key in zip(
                 self.planner_header_labels,
                 ("planner_session", "planner_order", "planner_duration"),
@@ -743,18 +1313,18 @@ class ModernMuseWindow(QMainWindow):
                 background: #d1fae5;
                 color: #064e3b;
                 border: 1px solid #99f6e4;
-                border-radius: 18px;
-                padding: 6px 14px;
-                font-size: 12px;
+                border-radius: 14px;
+                padding: 3px 10px;
+                font-size: 11px;
                 font-weight: 800;
-                min-height: 36px;
+                min-height: 28px;
             }
             QComboBox#SoftwareLanguageCombo:hover {
                 background: #ccfbf1;
                 border: 1px solid #99f6e4;
             }
             QComboBox#SoftwareLanguageCombo::drop-down {
-                width: 24px;
+                width: 18px;
             }
             QComboBox QAbstractItemView {
                 background: #fffdf9;
@@ -929,7 +1499,7 @@ class ModernMuseWindow(QMainWindow):
         self.software_language_combo = QComboBox()
         self.software_language_combo.setObjectName("SoftwareLanguageCombo")
         self.software_language_combo.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.software_language_combo.setFixedWidth(170)
+        self.software_language_combo.setFixedWidth(138)
         for language_code, language_bundle in self.software_languages.items():
             display_name, _native_name = language_bundle
             self.software_language_combo.addItem(display_name, language_code)
@@ -1169,7 +1739,7 @@ class ModernMuseWindow(QMainWindow):
         self.examiner_name_input = QLineEdit()
         self.examiner_id_input = QLineEdit()
         self.examiner_age_input = QLineEdit()
-        self.examiner_n_value_input = QLineEdit("3")
+        self.examiner_n_value_input = QLineEdit("2")
         self.examiner_n_value_input.setMaximumWidth(120)
         self.examiner_note_input = QTextEdit()
         self.examiner_note_input.setFixedHeight(88)
@@ -1193,6 +1763,15 @@ class ModernMuseWindow(QMainWindow):
 
         self.relax_audio_checkbox = QCheckBox(self._ui("field_relax_audio"))
         layout.addWidget(self.relax_audio_checkbox)
+        self.announcement_volume_label = QLabel(self._ui("field_announcement_volume"))
+        self.announcement_volume_label.setObjectName("FieldLabel")
+        layout.addWidget(self.announcement_volume_label)
+        self.announcement_volume_slider = QSlider(Qt.Orientation.Horizontal)
+        self.announcement_volume_slider.setRange(0, 100)
+        self.announcement_volume_slider.setValue(70)
+        self.announcement_volume_slider.setSingleStep(5)
+        self.announcement_volume_slider.setPageStep(10)
+        layout.addWidget(self.announcement_volume_slider)
 
         self.planner_title_label = QLabel(self._ui("planner_title"))
         self.planner_title_label.setObjectName("ExaminerHeading")
@@ -1249,6 +1828,7 @@ class ModernMuseWindow(QMainWindow):
         self.game_combo.currentIndexChanged.connect(self._update_selected_game_panels)
         self.game_language_combo.currentIndexChanged.connect(self._update_selected_game_panels)
         self.software_language_combo.currentIndexChanged.connect(self._handle_software_language_changed)
+        self.announcement_volume_slider.valueChanged.connect(self._on_announcement_volume_slider_changed)
         self.timer.timeout.connect(self._refresh_ui)
 
     def _handle_software_language_changed(self) -> None:
@@ -1540,16 +2120,10 @@ class ModernMuseWindow(QMainWindow):
             )
         if current_language in game.supported_languages:
             self.game_language_combo.setCurrentIndex(game.supported_languages.index(current_language))
+        elif game.supported_languages:
+            self.game_language_combo.setCurrentIndex(0)
         self.game_language_combo.blockSignals(False)
-        details = [
-            self._ui("game_language_prefix", languages=", ".join(
-                self.game_languages.get(language_code, language_code)
-                for language_code in game.supported_languages
-            ))
-        ]
-        self.game_description_label.setText(
-            "\n\n".join(details)
-        )
+        self.game_description_label.setText("")
         self._update_examiner_preview(game)
 
     def _update_examiner_preview(self, game) -> None:
@@ -1594,6 +2168,7 @@ class ModernMuseWindow(QMainWindow):
         age = self.examiner_age_input.text().strip()
         n_value_text = self.examiner_n_value_input.text().strip()
         relax_audio_enabled = self.relax_audio_checkbox.isChecked()
+        announcement_volume = float(self.announcement_volume_slider.value()) / 100.0
         note = self.examiner_note_input.toPlainText().strip()
 
         if not participant_name:
@@ -1655,9 +2230,40 @@ class ModernMuseWindow(QMainWindow):
             "age": age,
             "n_value": n_value,
             "relax_audio_enabled": relax_audio_enabled,
+            "announcement_volume": announcement_volume,
             "note": note,
             "session_stages": stage_plan,
         }
+
+    @staticmethod
+    def _resolve_preview_sound_path() -> Path | None:
+        candidates = (
+            Path("/System/Library/Sounds/Pong.aiff"),
+            Path("/System/Library/Sounds/Ping.aiff"),
+        )
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _on_announcement_volume_slider_changed(self, _value: int) -> None:
+        self.announcement_preview_timer.start(140)
+
+    def _play_announcement_preview_sound(self) -> None:
+        volume = max(0.0, min(float(self.announcement_volume_slider.value()) / 100.0, 1.0))
+        if self.afplay_command is None or self.preview_sound_path is None:
+            QApplication.beep()
+            return
+
+        command = [self.afplay_command, "-v", f"{volume:.2f}", str(self.preview_sound_path)]
+
+        def run_preview() -> None:
+            try:
+                subprocess.run(command, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+
+        threading.Thread(target=run_preview, daemon=True).start()
 
     def _append_log(self, message: str) -> None:
         stamp = datetime.now().strftime("%H:%M:%S")

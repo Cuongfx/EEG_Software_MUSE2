@@ -22,7 +22,7 @@ class GameDefinition:
     description: str
     module_path: Path
     module_name: str
-    supported_languages: tuple[str, ...] = ("en", "de", "vi", "zh", "ar")
+    supported_languages: tuple[str, ...] = ("en", "de", "vi", "zh", "ar", "ko", "ja", "fr", "es", "ru", "it", "pt")
     owner: str | None = None
     source: str | None = None
     examiner_preview: dict[str, ExaminerPreview] | None = None
@@ -78,7 +78,7 @@ class GameRegistry:
                 description="Launch the bundled focus task in a separate game window.",
                 module_path=n_back_path,
                 module_name="GAME.n_back.main",
-                supported_languages=("en", "de", "vi", "zh", "ar"),
+                supported_languages=("en", "de", "vi", "zh", "ar", "ko", "ja", "fr", "es", "ru", "it", "pt"),
                 owner=None,
                 source="Based on danghoanganh36/N-Back-Game: https://github.com/danghoanganh36/N-Back-Game",
                 examiner_preview={

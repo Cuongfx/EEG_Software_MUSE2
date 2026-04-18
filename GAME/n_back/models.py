@@ -17,6 +17,7 @@ class ExaminerSession:
     age: str
     n_value: int
     relax_audio_enabled: bool
+    announcement_volume: float
     note: str
     block_plan: list[int]
     session_stages: list[SessionStage]

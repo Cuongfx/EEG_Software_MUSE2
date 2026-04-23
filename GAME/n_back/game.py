@@ -13,7 +13,7 @@ import time
 import tkinter as tk
 from datetime import date, datetime
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import ttk
 
 from .config import NBackRules, calculate_trial_count, load_rules
 from .data import load_participant_tasks, resolve_block_plan
@@ -2050,6 +2050,11 @@ class NBackGameController:
         self.root.bind("<Escape>", lambda event: self.root.attributes("-fullscreen", False))
         self.root.bind("<Configure>", self._on_root_resize)
         self.root.protocol("WM_DELETE_WINDOW", self._on_root_close)
+        self.relax_audio_var = tk.BooleanVar(value=False)
+        self.relax_music_options = {
+            "binaural_sound": self._t("music_binaural_sound"),
+            "rain_sound": self._t("music_rain_sound"),
+        }
         self.examiner_window: tk.Toplevel | None = None
         preset_session = self._load_preset_session()
         if self.demo_mode:
@@ -2347,6 +2352,13 @@ class NBackGameController:
         if self.examiner_window is not None:
             self.examiner_window.withdraw()
 
+    def _show_examiner_status(self, message: str, *, error: bool = True) -> None:
+        color = "#DC2626" if error else "#B45309"
+        if hasattr(self, "examiner_status_label"):
+            self.examiner_status_label.config(text=message, fg=color)
+        else:
+            print(message, file=sys.stderr if error else sys.stdout)
+
     def _open_consent_window(self) -> None:
         if self.consent_window is not None and self.consent_window.winfo_exists():
             self.consent_window.lift()
@@ -2405,7 +2417,7 @@ class NBackGameController:
 
     def confirm_examiner_session(self) -> None:
         if self.session_started:
-            messagebox.showinfo(self._t("examiner_title"), self._t("session_running_message"))
+            self._show_examiner_status(self._t("session_running_message"), error=False)
             return
 
         participant_name = self._entry_value("participant_name")
@@ -2416,33 +2428,32 @@ class NBackGameController:
         note = self._entry_value("note")
 
         if not participant_name:
-            messagebox.showerror(self._t("examiner_title"), self._t("name_required"))
+            self._show_examiner_status(self._t("name_required"))
             return
         if not participant_id:
-            messagebox.showerror(self._t("examiner_title"), self._t("id_required"))
+            self._show_examiner_status(self._t("id_required"))
             return
         if not participant_id.isdigit():
-            messagebox.showerror(
-                self._t("examiner_title"),
+            self._show_examiner_status(
                 "ID must contain numbers only. Prefix P is added automatically.",
             )
             return
         if not device_id:
-            messagebox.showerror(self._t("examiner_title"), self._t("device_id_required"))
+            self._show_examiner_status(self._t("device_id_required"))
             return
         if not age:
-            messagebox.showerror(self._t("examiner_title"), self._t("age_required"))
+            self._show_examiner_status(self._t("age_required"))
             return
         if not n_value_text:
-            messagebox.showerror(self._t("examiner_title"), self._t("n_value_required"))
+            self._show_examiner_status(self._t("n_value_required"))
             return
         try:
             n_value = int(n_value_text)
         except ValueError:
-            messagebox.showerror(self._t("examiner_title"), self._t("n_value_integer"))
+            self._show_examiner_status(self._t("n_value_integer"))
             return
         if n_value < 1:
-            messagebox.showerror(self._t("examiner_title"), self._t("n_value_positive"))
+            self._show_examiner_status(self._t("n_value_positive"))
             return
 
         stage_plan = self._read_stage_plan()
@@ -2520,16 +2531,10 @@ class NBackGameController:
                 language=LANGUAGE_LABELS.get(self.language_code, self.language_code),
             )
         )
-        self.consent_accepted_var.set(False)
-        self.consent_title_label.config(text=self._t("consent_title"))
-        self.consent_intro_label.config(text=self._t("consent_prompt"))
-        self.consent_link_button.config(text=self._t("consent_open_button"))
-        self.consent_checkbox.config(text=self._t("consent_agree"))
-        self.consent_container.pack(fill="both", expand=False, padx=80, pady=(0, 24))
-        self.start_button.config(text=self._t("start_button"))
+        self.consent_accepted_var.set(True)
+        self.start_button.config(text=self._t("start_button"), state=tk.NORMAL)
         self.start_button.pack(pady=(0, 48))
         self._hide_secondary_action()
-        self._update_start_gate()
 
     def _update_start_gate(self) -> None:
         self.start_button.config(state=tk.NORMAL if self.consent_accepted_var.get() else tk.DISABLED)
@@ -2595,35 +2600,35 @@ class NBackGameController:
             try:
                 order = int(order_text)
             except ValueError:
-                messagebox.showerror(self._t("examiner_title"), self._t("order_whole_number", stage=self._stage_name(kind)))
+                self._show_examiner_status(self._t("order_whole_number", stage=self._stage_name(kind)))
                 return None
             try:
                 duration = float(duration_text)
             except ValueError:
-                messagebox.showerror(self._t("examiner_title"), self._t("duration_number", stage=self._stage_name(kind)))
+                self._show_examiner_status(self._t("duration_number", stage=self._stage_name(kind)))
                 return None
             if order not in (1, 2, 3):
-                messagebox.showerror(self._t("examiner_title"), self._t("order_range", stage=self._stage_name(kind)))
+                self._show_examiner_status(self._t("order_range", stage=self._stage_name(kind)))
                 return None
             if duration < 0:
-                messagebox.showerror(self._t("examiner_title"), self._t("duration_negative", stage=self._stage_name(kind)))
+                self._show_examiner_status(self._t("duration_negative", stage=self._stage_name(kind)))
                 return None
             orders.append(order)
             stages.append(SessionStage(kind=kind, duration_minutes=duration, order=order))
 
         if sorted(orders) != [1, 2, 3]:
-            messagebox.showerror(self._t("examiner_title"), self._t("order_unique"))
+            self._show_examiner_status(self._t("order_unique"))
             return None
 
         game_stage = next(stage for stage in stages if stage.kind == "game")
         if game_stage.duration_minutes <= 0:
-            messagebox.showerror(self._t("examiner_title"), self._t("game_duration_positive"))
+            self._show_examiner_status(self._t("game_duration_positive"))
             return None
 
         return sorted((stage for stage in stages if stage.duration_minutes > 0), key=lambda stage: stage.order)
 
     def begin_session(self) -> None:
-        if not self.session_ready or self.session is None or not self.consent_accepted_var.get():
+        if not self.session_ready or self.session is None:
             return
         self._clear_runtime_callbacks()
         self._stop_relax_audio()
@@ -3390,13 +3395,8 @@ def run_game() -> None:
         NBackGameController(root, assets_dir)
         root.mainloop()
     except Exception as exc:
-        try:
-            language_code = NBackGameController._resolve_language(os.environ.get("EEG_GAME_LANGUAGE", "en"))
-            bundle = TRANSLATIONS.get(language_code, TRANSLATIONS["en"])
-            messagebox.showerror(
-                bundle["launch_failed_title"],
-                bundle["launch_failed_message"].format(error=exc),
-            )
-        except Exception:
-            pass
+        language_code = NBackGameController._resolve_language(os.environ.get("EEG_GAME_LANGUAGE", "en"))
+        bundle = TRANSLATIONS.get(language_code, TRANSLATIONS["en"])
+        print(bundle["launch_failed_title"], file=sys.stderr)
+        print(bundle["launch_failed_message"].format(error=exc), file=sys.stderr)
         sys.exit(1)

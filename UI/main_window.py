@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 import threading
@@ -19,7 +20,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
-    QMessageBox,
     QPushButton,
     QPlainTextEdit,
     QApplication,
@@ -1111,6 +1111,7 @@ class ModernMuseWindow(QMainWindow):
         self._build_ui()
         self._connect_events()
         self._apply_software_language()
+        self._load_form_defaults()
         self._apply_responsive_layout(force=True)
         self.timer.start(self.config.plot_update_interval_ms)
 
@@ -2218,12 +2219,7 @@ class ModernMuseWindow(QMainWindow):
     def _finish_connect_device(self, device: MuseDevice | None, error: str | None) -> None:
         self.connection_busy = False
         if error:
-            self._append_log(f"Connection failed: {error}")
-            QMessageBox.warning(
-                self,
-                self._ui("connect_device_title"),
-                self._ui("connect_device_failed", error=error),
-            )
+            self._append_log(self._ui("connect_device_failed", error=error))
             return
         if device is not None:
             self._append_log(f"Connected to {device.display_name}")
@@ -2254,12 +2250,7 @@ class ModernMuseWindow(QMainWindow):
     def _finish_disconnect_device(self, saved_files, error: str | None) -> None:
         self.connection_busy = False
         if error:
-            self._append_log(f"Disconnect failed: {error}")
-            QMessageBox.warning(
-                self,
-                self._ui("disconnect_device_title"),
-                self._ui("disconnect_device_failed", error=error),
-            )
+            self._append_log(self._ui("disconnect_device_failed", error=error))
             return
         if saved_files is None:
             self._append_log("Device disconnected.")
@@ -2267,11 +2258,7 @@ class ModernMuseWindow(QMainWindow):
     def _toggle_recording(self) -> None:
         status = self.controller.status()
         if not status.running:
-            QMessageBox.information(
-                self,
-                self._ui("record_data_title"),
-                self._ui("no_device_recording"),
-            )
+            self._append_log(self._ui("no_device_recording"))
             return
 
         if status.recording:
@@ -2291,15 +2278,12 @@ class ModernMuseWindow(QMainWindow):
         if examiner_setup is None:
             return
         self.controller.set_save_context(**self._save_context_from_examiner_setup(examiner_setup))
+        self._save_form_defaults(examiner_setup)
 
         status = self.controller.status()
         self.pending_game_auto_record = False
         if not status.running:
-            QMessageBox.information(
-                self,
-                self._ui("start_game_title"),
-                self._ui("start_game_no_device"),
-            )
+            self._append_log(self._ui("start_game_no_device"))
 
         self.launch_game_button.setEnabled(False)
         self.play_demo_button.setEnabled(False)
@@ -2356,7 +2340,6 @@ class ModernMuseWindow(QMainWindow):
             if self.pending_game_auto_record and self.controller.status().recording:
                 self.controller.stop_recording(save=True)
             self._append_log(f"Could not launch game: {result}")
-            QMessageBox.warning(self, self._ui("start_game_title"), f"{result}")
             self.pending_game_auto_record = False
             return
 
@@ -2425,22 +2408,20 @@ class ModernMuseWindow(QMainWindow):
                     )
                 except Exception as exc:
                     self._append_log(f"EEG display filter fallback on {self.config.eeg_channels[index].name}: {exc}")
-            auto_scale = self.config.eeg_channels[index].name == "AUX"
             self.plot_cards[index].canvas.update_series(
                 display_values,
                 self.config.max_points,
-                auto_scale=True,
-                min_half_range=15.0 if auto_scale else 12.0,
+                auto_scale=False,
             )
         self.plot_cards[-1].canvas.update_series(
             ppg_series,
             self.config.max_points,
-            auto_scale=True,
+            auto_scale=False,
             min_half_range=18.0,
         )
 
         bpm = hr_series[-1] if hr_series else estimate_hr_from_ppg(ppg_series, self.config.ppg_sampling_rate)
-        battery = self.device_manager.current_battery_percent
+        battery = self.controller.battery_percent or self.device_manager.current_battery_percent
         self.metric_cards["connection"].set_value(
             self._ui("metric_live") if status.running else self._ui("metric_offline"),
             self._ui("metric_stream_state"),
@@ -2510,17 +2491,70 @@ class ModernMuseWindow(QMainWindow):
     def _collect_demo_n_value(self) -> int | None:
         n_value_text = self.examiner_n_value_input.text().strip()
         if not n_value_text:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_required"))
+            self._append_log(self._ui("n_value_required"))
             return None
         try:
             n_value = int(n_value_text)
         except ValueError:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_integer"))
+            self._append_log(self._ui("n_value_integer"))
             return None
         if n_value < 1:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_positive"))
+            self._append_log(self._ui("n_value_positive"))
             return None
         return n_value
+
+    def _load_form_defaults(self) -> None:
+        path = self.project_root / "form_defaults.json"
+        if not path.exists():
+            return
+        try:
+            with open(path) as f:
+                d = json.load(f)
+        except Exception:
+            return
+        self.examiner_name_input.setText(str(d.get("participant_name", "")))
+        self.examiner_id_input.setText(str(d.get("participant_id", "")))
+        self.examiner_device_id_input.setText(str(d.get("device_id", "")))
+        self.examiner_age_input.setText(str(d.get("age", "")))
+        self.examiner_n_value_input.setText(str(d.get("n_value", "2")))
+        self.examiner_note_input.setPlainText(str(d.get("note", "")))
+        for stage_key in ("relax", "break", "game"):
+            if order := str(d.get(f"stage_{stage_key}_order", "")):
+                self.stage_order_inputs[stage_key].setText(order)
+            if duration := str(d.get(f"stage_{stage_key}_duration", "")):
+                self.stage_duration_inputs[stage_key].setText(duration)
+        if "relax_audio_enabled" in d:
+            self.relax_music_switch.setChecked(bool(d["relax_audio_enabled"]))
+        if track := str(d.get("relax_music_track", "")):
+            idx = self.music_track_combo.findData(track)
+            if idx >= 0:
+                self.music_track_combo.setCurrentIndex(idx)
+        if "announcement_volume" in d:
+            self.announcement_volume_slider.setValue(int(d["announcement_volume"]))
+
+    def _save_form_defaults(self, examiner_setup: dict[str, object]) -> None:
+        path = self.project_root / "form_defaults.json"
+        defaults: dict[str, object] = {
+            "participant_name": str(examiner_setup.get("participant_name", "")),
+            "participant_id": str(examiner_setup.get("participant_id", "")),
+            "device_id": str(examiner_setup.get("device_id", "")),
+            "age": str(examiner_setup.get("age", "")),
+            "n_value": str(examiner_setup.get("n_value", "2")),
+            "note": str(examiner_setup.get("note", "")),
+            "relax_audio_enabled": bool(examiner_setup.get("relax_audio_enabled", False)),
+            "relax_music_track": str(examiner_setup.get("relax_music_track", "binaural_sound")),
+            "announcement_volume": int(self.announcement_volume_slider.value()),
+        }
+        for stage in examiner_setup.get("session_stages", []):
+            if isinstance(stage, dict):
+                key = stage.get("kind", "")
+                defaults[f"stage_{key}_order"] = str(stage.get("order", ""))
+                defaults[f"stage_{key}_duration"] = str(stage.get("duration_minutes", ""))
+        try:
+            with open(path, "w") as f:
+                json.dump(defaults, f, indent=2)
+        except Exception:
+            pass
 
     def _collect_examiner_setup(self) -> dict[str, object] | None:
         participant_name = self.examiner_name_input.text().strip()
@@ -2534,34 +2568,30 @@ class ModernMuseWindow(QMainWindow):
         note = self.examiner_note_input.toPlainText().strip()
 
         if not participant_name:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("name_required"))
+            self._append_log(self._ui("name_required"))
             return None
         if not participant_id:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("id_required"))
+            self._append_log(self._ui("id_required"))
             return None
         if not participant_id.isdigit():
-            QMessageBox.warning(
-                self,
-                self._ui("examiner_control"),
-                "ID must contain numbers only. Prefix P is added automatically.",
-            )
+            self._append_log("ID must contain numbers only. Prefix P is added automatically.")
             return None
         if not device_id:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("device_id_required"))
+            self._append_log(self._ui("device_id_required"))
             return None
         if not age:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("age_required"))
+            self._append_log(self._ui("age_required"))
             return None
         if not n_value_text:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_required"))
+            self._append_log(self._ui("n_value_required"))
             return None
         try:
             n_value = int(n_value_text)
         except ValueError:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_integer"))
+            self._append_log(self._ui("n_value_integer"))
             return None
         if n_value < 1:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("n_value_positive"))
+            self._append_log(self._ui("n_value_positive"))
             return None
 
         stage_plan: list[dict[str, object]] = []
@@ -2572,28 +2602,28 @@ class ModernMuseWindow(QMainWindow):
             try:
                 order = int(order_text)
             except ValueError:
-                QMessageBox.warning(self, self._ui("examiner_control"), self._ui("order_whole_number", stage=self._stage_label(stage_key)))
+                self._append_log(self._ui("order_whole_number", stage=self._stage_label(stage_key)))
                 return None
             try:
                 duration = float(duration_text)
             except ValueError:
-                QMessageBox.warning(self, self._ui("examiner_control"), self._ui("duration_number", stage=self._stage_label(stage_key)))
+                self._append_log(self._ui("duration_number", stage=self._stage_label(stage_key)))
                 return None
             if order not in (1, 2, 3):
-                QMessageBox.warning(self, self._ui("examiner_control"), self._ui("order_range", stage=self._stage_label(stage_key)))
+                self._append_log(self._ui("order_range", stage=self._stage_label(stage_key)))
                 return None
             if duration < 0:
-                QMessageBox.warning(self, self._ui("examiner_control"), self._ui("duration_negative", stage=self._stage_label(stage_key)))
+                self._append_log(self._ui("duration_negative", stage=self._stage_label(stage_key)))
                 return None
             orders.append(order)
             stage_plan.append({"kind": stage_key, "order": order, "duration_minutes": duration})
 
         if sorted(orders) != [1, 2, 3]:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("order_unique"))
+            self._append_log(self._ui("order_unique"))
             return None
         game_stage = next(stage for stage in stage_plan if stage["kind"] == "game")
         if float(game_stage["duration_minutes"]) <= 0:
-            QMessageBox.warning(self, self._ui("examiner_control"), self._ui("game_duration_positive"))
+            self._append_log(self._ui("game_duration_positive"))
             return None
 
         return {

@@ -9,7 +9,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QListWidget,
     QListWidgetItem,
-    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -104,7 +103,7 @@ class DeviceSelectionDialog(QDialog):
     def _accept_selection(self) -> None:
         item = self.device_list.currentItem()
         if item is None:
-            QMessageBox.information(self, "Connect to Device", "Please select a device first.")
+            self.status_label.setText("Please select a device first.")
             return
         self.selected_device = item.data(Qt.ItemDataRole.UserRole)
         self.accept()

@@ -51,6 +51,8 @@ class MuseStreamController:
         self.reader_thread: threading.Thread | None = None
         self.eeg_inlet = None
         self.ppg_inlet = None
+        self.telemetry_inlet = None
+        self.battery_percent: float | None = None
         self.eeg_channel_map: list[int] | None = None
         self.eeg_channel_labels: list[str] = []
         self._eeg_mapping_logged = False
@@ -78,6 +80,12 @@ class MuseStreamController:
         else:
             self.ppg_inlet = None
             self._emit("Connected to EEG stream. No PPG stream found.")
+
+        telemetry_stream = resolve_stream("TELEMETRY", 2, self.config.stream_name, False)
+        if telemetry_stream is not None:
+            self.telemetry_inlet = mne_lsl.lsl.StreamInlet(telemetry_stream)
+            self.telemetry_inlet.open_stream()
+            self.telemetry_inlet.flush()
 
         self.running = True
         self.reader_thread = threading.Thread(target=self._reader_loop, name="muse-lsl-reader", daemon=True)
@@ -184,6 +192,13 @@ class MuseStreamController:
                         self.processor.process_ppg_chunk(ppg_samples_np, ppg_times)
                         saw_data = True
 
+                if self.telemetry_inlet is not None:
+                    telem_samples, telem_times = self.telemetry_inlet.pull_chunk(timeout=0.0, max_samples=4)
+                    if len(telem_times) > 0:
+                        telem_np = np.asarray(telem_samples, dtype=float)
+                        if telem_np.ndim == 2 and telem_np.shape[1] >= 1:
+                            self.battery_percent = float(telem_np[-1, 0])
+
                 if not saw_data:
                     time.sleep(0.01)
             except Exception as exc:
@@ -203,6 +218,10 @@ class MuseStreamController:
         if self.ppg_inlet is not None:
             self.ppg_inlet.close_stream()
             self.ppg_inlet = None
+        if self.telemetry_inlet is not None:
+            self.telemetry_inlet.close_stream()
+            self.telemetry_inlet = None
+        self.battery_percent = None
 
     def _emit(self, message: str) -> None:
         self.status_sink(message)
@@ -232,6 +251,13 @@ class MuseStreamController:
                 self.ppg_inlet.flush()
             else:
                 self.ppg_inlet = None
+            telemetry_stream = resolve_stream("TELEMETRY", 2, self.config.stream_name, False)
+            if telemetry_stream is not None:
+                self.telemetry_inlet = mne_lsl.lsl.StreamInlet(telemetry_stream)
+                self.telemetry_inlet.open_stream()
+                self.telemetry_inlet.flush()
+            else:
+                self.telemetry_inlet = None
             self._emit("LSL stream recovery completed.")
         except Exception as exc:
             self._emit(f"LSL stream recovery is waiting for the Muse stream to return. ({exc})")

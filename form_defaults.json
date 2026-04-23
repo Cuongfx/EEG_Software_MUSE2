@@ -1,0 +1,17 @@
+{
+  "participant_name": "Test",
+  "participant_id": "101",
+  "device_id": "MUSE-32D3",
+  "age": "25",
+  "n_value": "2",
+  "note": "",
+  "relax_audio_enabled": true,
+  "relax_music_track": "rain_sound",
+  "announcement_volume": 70,
+  "stage_relax_order": "1",
+  "stage_relax_duration": "1.0",
+  "stage_break_order": "2",
+  "stage_break_duration": "1.0",
+  "stage_game_order": "3",
+  "stage_game_duration": "1.0"
+}

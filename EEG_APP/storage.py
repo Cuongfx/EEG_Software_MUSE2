@@ -75,5 +75,5 @@ def _safe_participant_file_id(value: str) -> str:
 
 
 def _safe_session_label(value: str) -> str:
-    cleaned = "".join(character for character in str(value).upper() if character in {"A", "B", "C"})
-    return cleaned or "ABC"
+    labels = [character for character in str(value).upper() if character in {"A", "B", "C"}]
+    return "_".join(labels) if labels else "A_B_C"

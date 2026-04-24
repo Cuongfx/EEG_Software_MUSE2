@@ -1,7 +1,4 @@
 numpy
 scipy
-matplotlib
-PyQt6
 muselsl
 mne-lsl
-pygame

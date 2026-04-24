@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>EEG Analyse</title>
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body>
+    <div id="appShell">
+      <header class="topbar">
+        <div>
+          <h1>EEG Analyse</h1>
+          <p>Local web control for Muse EEG/PPG sessions</p>
+        </div>
+        <div class="topbar-actions">
+          <select id="softwareLanguage" aria-label="Software language"></select>
+          <span id="connectionBadge" class="badge">Disconnected</span>
+          <span id="recordingBadge" class="badge muted">Not Recording</span>
+        </div>
+      </header>
+
+      <nav class="tabs" aria-label="Application sections">
+        <button class="tab-button active" data-tab="analyse">Analyse</button>
+        <button class="tab-button" data-tab="experiment">Experiment Set-Up</button>
+      </nav>
+
+      <main>
+        <section id="analyseTab" class="tab-panel active">
+          <div class="metric-grid">
+            <article class="metric-card">
+              <span>Connection</span>
+              <strong id="metricConnection">Offline</strong>
+              <small>Stream state</small>
+            </article>
+            <article class="metric-card">
+              <span>Recording</span>
+              <strong id="metricRecording">Standby</strong>
+              <small>Capture mode</small>
+            </article>
+            <article class="metric-card">
+              <span>Battery</span>
+              <strong id="metricBattery">--%</strong>
+              <small>Device battery</small>
+            </article>
+            <article class="metric-card">
+              <span>Heart Rate</span>
+              <strong id="metricHeartRate">-- bpm</strong>
+              <small>Latest estimate</small>
+            </article>
+          </div>
+
+          <div class="analyse-grid">
+            <section class="plot-area" aria-label="Live signals">
+              <div id="plotGrid" class="plot-grid"></div>
+            </section>
+
+            <aside class="side-stack">
+              <section class="panel">
+                <div class="panel-heading">
+                  <h2>Device + Recording</h2>
+                  <span id="busyLabel" class="subtle">Ready</span>
+                </div>
+                <div class="control-row">
+                  <button id="scanDevicesButton" type="button">Scan Devices</button>
+                  <button id="connectDeviceButton" type="button" class="primary">Connect</button>
+                </div>
+                <select id="deviceSelect" size="4" aria-label="Available Muse devices"></select>
+                <div class="control-row">
+                  <button id="disconnectDeviceButton" type="button">Disconnect</button>
+                  <button id="recordButton" type="button" class="accent">Record Data</button>
+                </div>
+                <dl class="status-list">
+                  <div>
+                    <dt>Selected device</dt>
+                    <dd id="selectedDevice">None</dd>
+                  </div>
+                  <div>
+                    <dt>EEG</dt>
+                    <dd id="eegStreamState">Waiting</dd>
+                  </div>
+                  <div>
+                    <dt>PPG</dt>
+                    <dd id="ppgStreamState">Waiting</dd>
+                  </div>
+                  <div>
+                    <dt>Last save</dt>
+                    <dd id="lastSave">No recording saved yet</dd>
+                  </div>
+                </dl>
+              </section>
+
+              <section class="panel log-panel">
+                <div class="panel-heading">
+                  <h2>Session Log</h2>
+                </div>
+                <pre id="sessionLog" aria-live="polite"></pre>
+              </section>
+            </aside>
+          </div>
+        </section>
+
+        <section id="experimentTab" class="tab-panel">
+          <div class="experiment-grid">
+            <section class="panel setup-panel">
+              <div class="panel-heading">
+                <h2>Examiner Control</h2>
+                <span id="gameLanguageLabel" class="subtle">Focus Game</span>
+              </div>
+              <form id="examinerForm" class="form-grid">
+                <label>
+                  Name
+                  <input id="participantName" name="participant_name" autocomplete="off">
+                </label>
+                <label>
+                  ID
+                  <input id="participantId" name="participant_id" inputmode="numeric" autocomplete="off">
+                </label>
+                <label>
+                  DeviceID
+                  <input id="deviceId" name="device_id" autocomplete="off">
+                </label>
+                <label>
+                  Age
+                  <input id="participantAge" name="age" autocomplete="off">
+                </label>
+                <label>
+                  N Value
+                  <input id="nValue" name="n_value" type="number" min="1" step="1">
+                </label>
+                <label>
+                  Game language
+                  <select id="gameLanguage"></select>
+                </label>
+                <label class="wide switch-line">
+                  <input id="relaxAudioEnabled" type="checkbox">
+                  <span>Play music during Relax</span>
+                </label>
+                <label>
+                  Music track
+                  <select id="relaxMusicTrack">
+                    <option value="binaural_sound">Binaural sound</option>
+                    <option value="rain_sound">Rain sound</option>
+                  </select>
+                </label>
+                <label>
+                  Announcement volume
+                  <input id="announcementVolume" type="range" min="0" max="100" step="1">
+                </label>
+                <label class="wide">
+                  Note
+                  <textarea id="participantNote" rows="4"></textarea>
+                </label>
+              </form>
+            </section>
+
+            <section class="panel planner-panel">
+              <div class="panel-heading">
+                <h2>Session Planner</h2>
+                <span class="subtle">A/B/C order</span>
+              </div>
+              <div class="planner-table" role="table" aria-label="Session planner">
+                <div class="planner-head" role="row">
+                  <span>Session</span>
+                  <span>Order</span>
+                  <span>Duration</span>
+                </div>
+                <label class="planner-row" role="row">
+                  <span>Relax (A)</span>
+                  <input id="stageRelaxOrder" type="number" min="1" max="3" step="1">
+                  <input id="stageRelaxDuration" type="number" min="0" step="0.1">
+                </label>
+                <label class="planner-row" role="row">
+                  <span>Break (B)</span>
+                  <input id="stageBreakOrder" type="number" min="1" max="3" step="1">
+                  <input id="stageBreakDuration" type="number" min="0" step="0.1">
+                </label>
+                <label class="planner-row" role="row">
+                  <span>Game (C)</span>
+                  <input id="stageGameOrder" type="number" min="1" max="3" step="1">
+                  <input id="stageGameDuration" type="number" min="0.1" step="0.1">
+                </label>
+              </div>
+              <div class="action-row">
+                <button id="playDemoButton" type="button">Play Demo</button>
+                <button id="startGameButton" type="button" class="primary">Start Game</button>
+              </div>
+              <p id="formStatus" class="form-status" aria-live="polite"></p>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <section id="focusGame" class="focus-game hidden" aria-live="polite">
+      <header class="game-topbar">
+        <div>
+          <h2 id="gameTitle">Focus Game</h2>
+          <p id="gameContext">Session</p>
+        </div>
+        <button id="exitGameButton" type="button">End</button>
+      </header>
+      <div id="gameStage" class="game-stage">
+        <div id="gameMainText" class="game-main-text">Ready</div>
+        <div id="gameDetailText" class="game-detail-text"></div>
+        <div id="gameActions" class="game-actions"></div>
+      </div>
+      <audio id="relaxAudio" preload="auto" loop></audio>
+    </section>
+
+    <dialog id="termsDialog">
+      <form method="dialog" class="dialog-card">
+        <h2>Terms and Conditions</h2>
+        <pre id="termsText"></pre>
+        <button type="submit" class="primary">Close</button>
+      </form>
+    </dialog>
+
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
+

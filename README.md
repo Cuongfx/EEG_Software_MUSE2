@@ -1,35 +1,42 @@
 # EEG Analyse
 
-`EEG Analyse` is a desktop software for Muse-based EEG/PPG acquisition, live signal visualization, recording, and set up Game.
+`EEG Analyse` is now a local web-based application for Muse EEG/PPG acquisition, live signal visualization, recording, and Focus Game experiment sessions.
 
 ## Main Features
 
-- Activate the Muse 2 by pressing the button on the device. The LED should start flashing.
-- Start the software and click the Connect button to search for the Muse device.
-- Display live EEG and PPG plots
-- Record EEG and PPG to CSV
-- Launch `Game` with examiner setup
-- Save experiment outputs and participant metadata
+- Browser-based Analyse dashboard
+- Muse device scan, connect, disconnect, and battery check
+- Live EEG and PPG canvas plots
+- Manual EEG/PPG recording to CSV
+- Browser-based Focus Game with Relax, Break, and Game stages
+- Guided N-back demo mode
+- Participant metadata, session planner, consent capture, and result export
+- Master control workbook updates for game results
 
 ## Project Structure
 
 ```text
 EEG/
-├── UI/                  # Main desktop UI (PyQt6)
+├── WEB_APP/             # Local web server and browser UI
+│   └── static/          # HTML, CSS, and JavaScript frontend
 ├── EEG_APP/             # Device, streaming, processing, storage
-├── GAME/                # Game registry and game modules
-│   └── n_back/          # Focus Game implementation
-├── Archieve/            # Legacy/old scripts
-└── main.py              # App entry point
+├── GAME/                # Game rules, participant task data, result helpers
+│   └── n_back/          # Focus Game configuration and persistence helpers
+├── UI/                  # Legacy PyQt desktop UI kept for fallback only
+├── main.py              # Web app entry point
+└── desktop_main.py      # Legacy desktop entry point
 ```
 
 ## Requirements
 
-- Python 3.12 (recommended)
+- Python 3.12 or newer
 - Muse headset
 - `muselsl`
-- PyQt6
-- Tkinter (for game window)
+- `mne-lsl`
+- `numpy`
+- `scipy`
+
+The web runtime uses Python's standard HTTP server, so no separate web framework is required.
 
 ## Setup
 
@@ -41,64 +48,55 @@ chmod +x setup_venv.sh
 source .venv/bin/activate
 ```
 
-The script recreates `.venv`, upgrades `pip`, installs the desktop app dependencies from `requirements.txt`, and runs a quick import smoke test.
+## Run The Web App
 
-If you still see a Qt platform plugin error on macOS, clear any inherited Qt variables before launching:
-
-```bash
-unset QT_PLUGIN_PATH QT_QPA_PLATFORM_PLUGIN_PATH QT_QPA_PLATFORM
-```
-
-## Run
-
-From project root:
+From the project root:
 
 ```bash
-.venv/bin/python main.py
+python main.py
 ```
 
-## UI Overview
+By default the app runs at:
 
-### Analyse Tab
+```text
+http://127.0.0.1:8000
+```
 
-The Analyse tab is for real-time monitoring and recording.
+Useful options:
 
-![Analyse UI](./Analyse.png)
+```bash
+python main.py --host 127.0.0.1 --port 8000
+python main.py --no-browser
+```
 
-How to use:
+## Workflow
 
-1. Click `Connect to Device`
-2. Select your Muse headset
-3. Wait for stream connection
-4. Monitor live EEG/PPG plots
-5. Click `Record Data` to start recording
-6. Click `Stop Recording` to save
+### Analyse
 
-### Experiment Set-Up Tab
+1. Open the web app in your browser.
+2. Use `Scan Devices` to find nearby Muse headsets.
+3. Select a Muse device and click `Connect`.
+4. Watch the live EEG/PPG plots and metrics.
+5. Use `Record Data` and `Stop Recording` for manual CSV capture.
 
-The Experiment Set-Up tab is for game launch and examiner configuration.
+### Experiment Set-Up
 
-![Experiment Set-Up UI](./Experiment_Set_up.png)
+1. Fill participant fields: `Name`, `ID`, `DeviceID`, `Age`, `N Value`, and `Note`.
+2. Configure Relax, Break, and Game order and duration.
+3. Choose the game language and relax music track.
+4. Use `Play Demo` for guided N-back practice.
+5. Use `Start Game` to run the full browser-based session.
 
-How to use:
+## Focus Game
 
-1. Select `Game`
-2. Choose game language
-3. Enter participant fields (`Name`, `ID`, `Age`, `N`, `Note`)
-4. Configure stage order and duration, for example (`Relax`, `Break`, `Game`)
-5. Launch game and run the session
+The Focus Game is an N-back task. The participant must remember the newest `N` letters and press `SPACE` only when the current letter matches the one from `N` steps earlier.
 
-## Focus Game (N-back)
-
-In `Focus Game`, the examiner sets `N`. The player must always remember the newest `N` letters and press `SPACE` only when the current letter matches the one from `N` steps earlier.
-
-`N_Back_game` is based on: [danghoanganh36/N-Back-Game](https://github.com/danghoanganh36/N-Back-Game).
-
-Example (`N = 3`):
+Example for `N = 3`:
 
 - `A, K, D, A` -> press `SPACE` on the last `A`
 - `A, K, D, C` -> do not press
-- then memory slides to `K, D, C`, and the rule continues
+
+When the game starts, the browser asks for consent, then runs the planned Relax, Break, and Game stages. If a Muse stream is connected, recording starts automatically at session start and stops automatically at session end.
 
 ## Output Files
 
@@ -106,11 +104,21 @@ Example (`N = 3`):
 - Game result CSV: `GAME/n_back/result/`
 - Master control workbook: `GAME/n_back/result/Master_Control.xlsx`
 
+## Legacy Desktop Fallback
+
+The old PyQt/Tkinter desktop shell is no longer the default app, but it is still available for comparison:
+
+```bash
+python desktop_main.py
+```
+
+That fallback still requires the desktop-only dependencies from the older application.
+
 ## License and Citation
 
 This software is provided for research and academic use.
 
-If you use this software, you **must cite the author** in your publication, report, thesis, or project documentation.
+If you use this software, you must cite the author in your publication, report, thesis, or project documentation.
 
 Recommended citation:
 
@@ -118,7 +126,7 @@ Recommended citation:
 
 ## Author
 
-👨‍💻 **Author**  
-**Manh Cuong Pham**  
-📧 pmcuong1996@icloud.com  
-💼 PhD Candidate at RPTU Kaiserslautern-Landau
+Manh Cuong Pham  
+pmcuong1996@icloud.com  
+PhD Candidate at RPTU Kaiserslautern-Landau
+

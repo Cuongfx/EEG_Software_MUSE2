@@ -14,15 +14,69 @@ from .state import SessionState
 from .storage import SavedSessionFiles, save_session_data
 
 
-def resolve_stream(stype: str, timeout: int, name: str, required: bool = True):
-    streams = mne_lsl.lsl.resolve_streams(stype=stype, timeout=timeout)
+@dataclass(frozen=True)
+class LSLStreamDescriptor:
+    name: str
+    channel_count: int
+    source_id: str = ""
+
+    @property
+    def display_name(self) -> str:
+        source = f", source {self.source_id}" if self.source_id else ""
+        return f"{self.name} ({self.channel_count} channels{source})"
+
+
+def discover_eeg_streams(timeout: float = 1.0) -> list[LSLStreamDescriptor]:
+    streams = mne_lsl.lsl.resolve_streams(stype="EEG", timeout=timeout)
+    return [
+        LSLStreamDescriptor(
+            name=str(stream.name),
+            channel_count=int(stream.n_channels),
+            source_id=str(getattr(stream, "source_id", "") or ""),
+        )
+        for stream in streams
+    ]
+
+
+def resolve_stream(
+    stype: str,
+    timeout: int,
+    name: str,
+    required: bool = True,
+    source_id: str = "",
+):
+    streams = mne_lsl.lsl.resolve_streams(
+        stype=stype,
+        timeout=timeout,
+        source_id=source_id or None,
+    )
     if name:
-        streams = [stream for stream in streams if stream.name == name]
-    if streams:
+        normalized_name = name.strip().lower()
+        exact_matches = [
+            stream for stream in streams if str(stream.name).strip().lower() == normalized_name
+        ]
+        streams = exact_matches or [
+            stream
+            for stream in streams
+            if str(stream.name).strip().lower() == normalized_name
+            or str(stream.name).strip().lower().startswith(normalized_name)
+        ]
+    if not streams:
+        preferred = name.strip() if name else "first available"
+        if required:
+            raise RuntimeError(f"Could not find LSL stream for type '{stype}' named '{preferred}'.")
+        return None
+    if name:
         return streams[0]
-    if required:
-        raise RuntimeError(f"Could not find LSL stream for type '{stype}'.")
-    return None
+    fallback = next(
+        (
+            stream
+            for stream in streams
+            if "eego" in str(stream.name).lower() or "waveguard" in str(stream.name).lower()
+        ),
+        streams[0],
+    )
+    return fallback
 
 
 @dataclass(frozen=True)
@@ -59,19 +113,34 @@ class MuseStreamController:
         self._last_recovery_attempt = 0.0
         self._save_context: dict[str, str] = {"user_id": "unknown", "device_id": "unknown_device", "session_label": "ABC"}
 
-    def start(self) -> None:
+    def start(self, stream_name: str | None = None, source_id: str | None = None) -> None:
         if self.running:
             return
+        if stream_name is not None:
+            self.config_stream_name = stream_name
+        elif not hasattr(self, "config_stream_name"):
+            self.config_stream_name = self.config.stream_name
+        if source_id is not None:
+            self.config_stream_source_id = source_id
+        elif not hasattr(self, "config_stream_source_id"):
+            self.config_stream_source_id = ""
         self.processor.reset_session()
-        self._emit("Looking for Muse LSL streams...")
+        requested_name = self.config_stream_name.strip() if self.config_stream_name else "any EEG stream"
+        self._emit(f"Looking for eego LSL EEG stream (requested: {requested_name})...")
 
-        eeg_stream = resolve_stream("EEG", self.config.stream_timeout, self.config.stream_name, True)
+        eeg_stream = resolve_stream(
+            "EEG",
+            self.config.stream_timeout,
+            self.config_stream_name,
+            True,
+            self.config_stream_source_id,
+        )
         self.eeg_inlet = mne_lsl.lsl.StreamInlet(eeg_stream)
         self.eeg_inlet.open_stream()
         self.eeg_inlet.flush()
         self._configure_eeg_mapping()
 
-        ppg_stream = resolve_stream("PPG", 2, self.config.stream_name, False)
+        ppg_stream = resolve_stream("PPG", 2, self.config_stream_name, False)
         if ppg_stream is not None:
             self.ppg_inlet = mne_lsl.lsl.StreamInlet(ppg_stream)
             self.ppg_inlet.open_stream()
@@ -81,16 +150,16 @@ class MuseStreamController:
             self.ppg_inlet = None
             self._emit("Connected to EEG stream. No PPG stream found.")
 
-        telemetry_stream = resolve_stream("TELEMETRY", 2, self.config.stream_name, False)
+        telemetry_stream = resolve_stream("TELEMETRY", 2, self.config_stream_name, False)
         if telemetry_stream is not None:
             self.telemetry_inlet = mne_lsl.lsl.StreamInlet(telemetry_stream)
             self.telemetry_inlet.open_stream()
             self.telemetry_inlet.flush()
 
         self.running = True
-        self.reader_thread = threading.Thread(target=self._reader_loop, name="muse-lsl-reader", daemon=True)
+        self.reader_thread = threading.Thread(target=self._reader_loop, name="eego-lsl-reader", daemon=True)
         self.reader_thread.start()
-        self._emit("Receiving live Muse data over LSL...")
+        self._emit("Receiving live eego data over LSL...")
 
     def stop(self, save: bool = True) -> SavedSessionFiles | None:
         if not self.running and self.eeg_inlet is None:
@@ -238,20 +307,26 @@ class MuseStreamController:
             pass
 
         try:
-            eeg_stream = resolve_stream("EEG", self.config.stream_timeout, self.config.stream_name, True)
+            eeg_stream = resolve_stream(
+                "EEG",
+                self.config.stream_timeout,
+                self.config_stream_name,
+                True,
+                self.config_stream_source_id,
+            )
             self.eeg_inlet = mne_lsl.lsl.StreamInlet(eeg_stream)
             self.eeg_inlet.open_stream()
             self.eeg_inlet.flush()
             self._configure_eeg_mapping()
 
-            ppg_stream = resolve_stream("PPG", 2, self.config.stream_name, False)
+            ppg_stream = resolve_stream("PPG", 2, self.config_stream_name, False)
             if ppg_stream is not None:
                 self.ppg_inlet = mne_lsl.lsl.StreamInlet(ppg_stream)
                 self.ppg_inlet.open_stream()
                 self.ppg_inlet.flush()
             else:
                 self.ppg_inlet = None
-            telemetry_stream = resolve_stream("TELEMETRY", 2, self.config.stream_name, False)
+            telemetry_stream = resolve_stream("TELEMETRY", 2, self.config_stream_name, False)
             if telemetry_stream is not None:
                 self.telemetry_inlet = mne_lsl.lsl.StreamInlet(telemetry_stream)
                 self.telemetry_inlet.open_stream()
@@ -260,7 +335,7 @@ class MuseStreamController:
                 self.telemetry_inlet = None
             self._emit("LSL stream recovery completed.")
         except Exception as exc:
-            self._emit(f"LSL stream recovery is waiting for the Muse stream to return. ({exc})")
+            self._emit(f"LSL stream recovery is waiting for the eego stream to return. ({exc})")
 
     def _configure_eeg_mapping(self) -> None:
         self.eeg_channel_map = None
@@ -273,13 +348,17 @@ class MuseStreamController:
             sinfo = self.eeg_inlet.get_sinfo(timeout=2.0)
             channel_names = sinfo.get_channel_names() or []
         except Exception as exc:
-            self._emit(f"EEG metadata unavailable, using fallback channel order. ({exc})")
-            return
+            raise RuntimeError(
+                "The selected EEG stream did not provide channel metadata; "
+                "channel mapping is required for this 32-channel setup."
+            ) from exc
 
         self.eeg_channel_labels = [str(name) for name in channel_names if name is not None]
         if not self.eeg_channel_labels:
-            self._emit("EEG stream has no channel labels, using fallback channel order.")
-            return
+            raise RuntimeError(
+                "The selected EEG stream has no channel labels; "
+                "channel mapping is required for this 32-channel setup."
+            )
 
         normalized_source = [self._normalize_channel_name(name) for name in self.eeg_channel_labels]
         mapping: list[int] = []
@@ -294,8 +373,9 @@ class MuseStreamController:
         if missing_labels:
             labels = ", ".join(self.eeg_channel_labels)
             missing = ", ".join(missing_labels)
-            self._emit(
-                f"EEG labels found [{labels}], but missing [{missing}]. Using fallback channel order."
+            raise RuntimeError(
+                f"EEG channel metadata [{labels}] is missing configured channels [{missing}]. "
+                "Update the channel configuration to match the cap labels before connecting."
             )
             return
 
@@ -318,8 +398,7 @@ class MuseStreamController:
                     )
                     self._eeg_mapping_logged = True
                 return mapped
-            self._emit("EEG channel map no longer matches stream width. Reverting to fallback order.")
-            self.eeg_channel_map = None
+            raise RuntimeError("EEG sample width no longer matches the labeled channel mapping.")
 
         fallback = samples[:, ::-1] if self.config.reverse_eeg_stream_order else samples
         if fallback.shape[1] > expected_channels:
@@ -332,7 +411,7 @@ class MuseStreamController:
         if not self._eeg_mapping_logged:
             source_labels = ", ".join(self.eeg_channel_labels) if self.eeg_channel_labels else "unavailable"
             self._emit(
-                "Using fallback EEG order from archived Muse flow. "
+                "Using fallback EEG order from the connected stream. "
                 f"Source labels: [{source_labels}]"
             )
             self._eeg_mapping_logged = True

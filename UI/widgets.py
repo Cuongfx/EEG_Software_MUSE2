@@ -101,6 +101,65 @@ class SignalCanvas(FigureCanvasQTAgg):
         self.draw_idle()
 
 
+class ChannelStackCanvas(FigureCanvasQTAgg):
+    def __init__(
+        self,
+        channel_names: list[str],
+        colors: tuple[str, ...],
+        value_range: tuple[float, float],
+        max_points: int,
+    ) -> None:
+        self.channel_names = channel_names
+        self.max_points = max_points
+        self.amplitude = max(abs(value) for value in value_range) or 1.0
+        self.figure = Figure(figsize=(8.0, max(3.0, len(channel_names) * 0.36)), dpi=100)
+        self.axis = self.figure.add_subplot(111)
+        super().__init__(self.figure)
+        self.setMinimumSize(120, 160)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.figure.patch.set_facecolor("#ffffff")
+        self.axis.set_facecolor("#fbfdff")
+        self.axis.spines["top"].set_visible(False)
+        self.axis.spines["right"].set_visible(False)
+        self.axis.spines["left"].set_color("#dbe3ec")
+        self.axis.spines["bottom"].set_color("#dbe3ec")
+        self.axis.tick_params(colors="#728197", labelsize=8, axis="x")
+        self.axis.set_title("EEG Channels", fontsize=11, color="#0f172a", loc="left", pad=8)
+        self.axis.set_xlim(0, max(1, max_points - 1))
+        self.axis.set_ylim(len(channel_names) - 0.5, -0.5)
+        self.axis.set_yticks(range(len(channel_names)), labels=channel_names)
+        self.axis.tick_params(axis="y", colors="#334155", labelsize=8, length=0, pad=8)
+        self.axis.set_ylabel("Electrode")
+        self.axis.set_xlabel("Samples")
+        self.axis.grid(axis="x", alpha=0.18, color="#94a3b8")
+        self.axis.set_axisbelow(True)
+        self.lines = []
+        x_values = np.arange(max_points)
+        for index in range(len(channel_names)):
+            self.axis.axhline(index, color="#dbe3ec", linewidth=0.5, zorder=0)
+            line, = self.axis.plot(
+                x_values,
+                np.full(max_points, index, dtype=float),
+                color=colors[index % len(colors)],
+                linewidth=0.9,
+                zorder=2,
+            )
+            self.lines.append(line)
+        self.figure.subplots_adjust(left=0.1, right=0.985, top=0.985, bottom=0.055)
+
+    def update_channels(self, series: list[list[float]]) -> None:
+        for index, line in enumerate(self.lines):
+            values = np.asarray(series[index], dtype=float) if index < len(series) else np.empty(0)
+            if values.size > self.max_points:
+                values = values[-self.max_points :]
+            padded = np.zeros(self.max_points, dtype=float)
+            if values.size:
+                padded[-values.size :] = values
+            offset = index - (padded / self.amplitude) * 0.38
+            line.set_ydata(offset)
+        self.draw_idle()
+
+
 class SlideSwitch(QAbstractButton):
     """iOS-style on/off switch with a sliding circular thumb."""
 
@@ -197,13 +256,19 @@ class MetricCard(QFrame):
 
 
 class PlotCard(QFrame):
-    def __init__(self, title: str, color: str, y_limits: tuple[float, float]) -> None:
+    def __init__(
+        self,
+        title: str,
+        color: str,
+        y_limits: tuple[float, float],
+        canvas: FigureCanvasQTAgg | None = None,
+    ) -> None:
         super().__init__()
         self.setObjectName("PlotCard")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMinimumHeight(84)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(10, 10, 10, 10)
-        self.canvas = SignalCanvas(title=title, color=color, y_limits=y_limits)
+        self.canvas = canvas or SignalCanvas(title=title, color=color, y_limits=y_limits)
         self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self.canvas)

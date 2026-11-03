@@ -1,11 +1,11 @@
 # EEG Analyse
 
-`EEG Analyse` is a desktop software for Muse-based EEG/PPG acquisition, live signal visualization, recording, and set up Game.
+`EEG Analyse` is a desktop software for Muse, eego, and other LSL-based EEG/PPG acquisition, live signal visualization, recording, and set up Game.
 
 ## Main Features
 
-- Activate the Muse 2 by pressing the button on the device. The LED should start flashing.
-- Start the software and click the Connect button to search for the Muse device.
+- Connect to EEG and optional PPG streams published over Lab Streaming Layer (LSL), including eego systems configured to broadcast LSL.
+- The desktop app connects directly to LSL; a browser WebSocket bridge is not needed.
 - Display live EEG and PPG plots
 - Record EEG and PPG to CSV
 - Launch `Game` with examiner setup
@@ -26,8 +26,8 @@ EEG/
 ## Requirements
 
 - Python 3.12 (recommended)
-- Muse headset
-- `muselsl`
+- An EEG amplifier that publishes an LSL stream (for eego, enable EEG LSL streaming in the eego application)
+- `mne-lsl`
 - PyQt6
 - Tkinter (for game window)
 
@@ -67,12 +67,13 @@ The Analyse tab is for real-time monitoring and recording.
 
 How to use:
 
-1. Click `Connect to Device`
-2. Select your Muse headset
-3. Wait for stream connection
-4. Monitor live EEG/PPG plots
-5. Click `Record Data` to start recording
-6. Click `Stop Recording` to save
+1. Enable LSL EEG streaming in eego or your acquisition software.
+2. Click `Connect to Device`, scan for streams, and select the intended EEG stream.
+3. Confirm that the selected stream provides at least the 32 channels configured by the app.
+4. Wait for stream connection
+5. Monitor live EEG/PPG plots
+6. Click `Record Data` to start recording
+7. Click `Stop Recording` to save
 
 ### Experiment Set-Up Tab
 

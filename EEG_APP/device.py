@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import io
-import logging
 import re
 import subprocess
 import sys
@@ -65,7 +64,7 @@ class MuseDeviceManager:
         try:
             asyncio.set_event_loop(loop)
             with contextlib.redirect_stdout(io.StringIO()):
-                devices = list_muses(log_level=logging.ERROR) or []
+                devices = list_muses() or []
             return [
                 MuseDevice(
                     name=device.get("name", "Unknown Muse"),
@@ -176,7 +175,6 @@ class MuseDeviceManager:
             callback_telemetry=handle_telemetry,
             name=device.name,
             backend="auto",
-            log_level=logging.ERROR,
         )
         try:
             connected = muse.connect(retries=1)

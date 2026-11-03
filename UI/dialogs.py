@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from EEG_APP.device import MuseDevice
+from EEG_APP.streaming import LSLStreamDescriptor
 
 
 class DeviceSelectionDialog(QDialog):
@@ -24,8 +24,8 @@ class DeviceSelectionDialog(QDialog):
     def __init__(self, scan_callback, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.scan_callback = scan_callback
-        self.selected_device: MuseDevice | None = None
-        self.setWindowTitle("Connect to Device")
+        self.selected_stream: LSLStreamDescriptor | None = None
+        self.setWindowTitle("Connect to EEG Stream")
         self.setMinimumSize(560, 420)
         self._build_ui()
         self.scan_completed.connect(self._populate_devices)
@@ -37,15 +37,15 @@ class DeviceSelectionDialog(QDialog):
         layout.setContentsMargins(22, 22, 22, 22)
         layout.setSpacing(14)
 
-        title = QLabel("Available Muse Devices")
+        title = QLabel("Available EEG LSL Streams")
         title.setObjectName("DialogTitle")
         description = QLabel(
-            "Click scan to search nearby Muse headsets, then choose one device to connect."
+            "Start EEG streaming in eego or your acquisition software, scan for LSL streams, then choose the EEG stream."
         )
         description.setObjectName("DialogText")
         description.setWordWrap(True)
 
-        self.status_label = QLabel("Scanning for devices...")
+        self.status_label = QLabel("Scanning for EEG LSL streams...")
         self.status_label.setObjectName("DialogStatus")
         self.device_list = QListWidget()
         self.device_list.itemDoubleClicked.connect(lambda _item: self._accept_selection())
@@ -69,7 +69,7 @@ class DeviceSelectionDialog(QDialog):
         layout.addLayout(buttons)
 
     def scan_devices(self) -> None:
-        self.status_label.setText("Scanning for devices...")
+        self.status_label.setText("Scanning for EEG LSL streams...")
         self.scan_button.setEnabled(False)
         self.connect_button.setEnabled(False)
         self.device_list.clear()
@@ -82,15 +82,15 @@ class DeviceSelectionDialog(QDialog):
         except Exception as exc:
             self.scan_failed.emit(str(exc))
 
-    def _populate_devices(self, devices: list[MuseDevice]) -> None:
+    def _populate_devices(self, streams: list[LSLStreamDescriptor]) -> None:
         self.device_list.clear()
-        if not devices:
-            self.status_label.setText("No Muse devices were found.")
+        if not streams:
+            self.status_label.setText("No EEG LSL streams were found. Check that EEG streaming is enabled.")
         else:
-            self.status_label.setText(f"Found {len(devices)} device(s). Select one to connect.")
-            for device in devices:
-                item = QListWidgetItem(device.display_name)
-                item.setData(Qt.ItemDataRole.UserRole, device)
+            self.status_label.setText(f"Found {len(streams)} stream(s). Select one to connect.")
+            for stream in streams:
+                item = QListWidgetItem(stream.display_name)
+                item.setData(Qt.ItemDataRole.UserRole, stream)
                 self.device_list.addItem(item)
             self.device_list.setCurrentRow(0)
             self.connect_button.setEnabled(True)
@@ -103,7 +103,7 @@ class DeviceSelectionDialog(QDialog):
     def _accept_selection(self) -> None:
         item = self.device_list.currentItem()
         if item is None:
-            self.status_label.setText("Please select a device first.")
+            self.status_label.setText("Please select a stream first.")
             return
-        self.selected_device = item.data(Qt.ItemDataRole.UserRole)
+        self.selected_stream = item.data(Qt.ItemDataRole.UserRole)
         self.accept()

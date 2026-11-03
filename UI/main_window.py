@@ -4,7 +4,6 @@ import json
 import shutil
 import subprocess
 import threading
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -36,17 +35,16 @@ from PyQt6.QtWidgets import (
 from EEG_APP import (
     AppConfig,
     ArchitectureAgent,
-    MuseDevice,
-    MuseDeviceManager,
     MuseStreamController,
     SessionState,
     SignalProcessor,
 )
-from EEG_APP.processing import estimate_hr_from_ppg, filter_eeg_for_display
+from EEG_APP.processing import estimate_hr_from_ppg
+from EEG_APP.streaming import LSLStreamDescriptor, discover_eeg_streams
 from GAME import ExaminerPreview
 from GAME import GameRegistry
 from UI.dialogs import DeviceSelectionDialog
-from UI.widgets import MetricCard, PlotCard, SlideSwitch
+from UI.widgets import ChannelStackCanvas, MetricCard, PlotCard, SlideSwitch
 
 
 class ModernMuseWindow(QMainWindow):
@@ -125,7 +123,7 @@ class ModernMuseWindow(QMainWindow):
             "stream_connected": "{name} Stream  Connected",
             "stream_waiting": "{name} Stream  Waiting",
             "no_game_selected": "No game selected.",
-            "no_device_recording": "Connect a device first. Recording only works after a Muse stream is connected.",
+            "no_device_recording": "Connect an EEG LSL stream first. Recording is available after the stream connects.",
             "record_data_title": "Record Data",
             "start_game_title": "Start Game",
             "start_game_no_device": "The game will open, but EEG/PPG recording commands will be ignored because no device is connected.",
@@ -1048,11 +1046,6 @@ class ModernMuseWindow(QMainWindow):
             self.processor,
             status_sink=self.status_message.emit,
         )
-        self.device_manager = MuseDeviceManager(
-            log_sink=self.status_message.emit,
-            muselsl_retries=self.config.muselsl_retries,
-            restart_delay_seconds=self.config.muselsl_restart_delay_seconds,
-        )
         self.game_registry = GameRegistry(self.project_root)
 
         self.status_message.connect(self._append_log)
@@ -1062,13 +1055,15 @@ class ModernMuseWindow(QMainWindow):
         self.game_command_received.connect(self._handle_game_command)
 
         self.connection_busy = False
+        self.connected_stream_name: str | None = None
         self.last_saved_text = "No recording saved yet"
         self.pending_game_auto_record = False
         self.launched_games: list[dict[str, object]] = []
         self.plot_cards: list[PlotCard] = []
         self.metric_cards: dict[str, MetricCard] = {}
         self.metric_card_widgets: list[MetricCard] = []
-        self.eeg_plot_widgets: list[PlotCard] = []
+        self.eeg_plot_card: PlotCard | None = None
+        self.eeg_channel_canvas: ChannelStackCanvas | None = None
         self.ppg_plot_card: PlotCard | None = None
         self._responsive_signature: tuple[int, int] | None = None
         self.timer = QTimer(self)
@@ -1260,6 +1255,25 @@ class ModernMuseWindow(QMainWindow):
                 background: rgba(255, 252, 246, 0.96);
                 border: 1px solid #e8dccb;
                 border-radius: {card_radius}px;
+            }}
+            QScrollArea#ChannelScrollArea {{
+                background: transparent;
+                border: none;
+            }}
+            QScrollArea#ChannelScrollArea QScrollBar:vertical {{
+                background: #f1e9dd;
+                width: 10px;
+                margin: 2px;
+                border-radius: 5px;
+            }}
+            QScrollArea#ChannelScrollArea QScrollBar::handle:vertical {{
+                background: #b8a894;
+                min-height: 28px;
+                border-radius: 5px;
+            }}
+            QScrollArea#ChannelScrollArea QScrollBar::add-line:vertical,
+            QScrollArea#ChannelScrollArea QScrollBar::sub-line:vertical {{
+                height: 0;
             }}
             QFrame#InsetPanel {{
                 background: rgba(248, 244, 236, 0.96);
@@ -1746,17 +1760,36 @@ class ModernMuseWindow(QMainWindow):
         ]
         layout.addLayout(self.metric_grid)
 
-        self.plot_grid = QGridLayout()
+        self.plot_scroll_area = QScrollArea()
+        self.plot_scroll_area.setObjectName("ChannelScrollArea")
+        self.plot_scroll_area.setWidgetResizable(True)
+        self.plot_scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        self.plot_scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.plot_scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self.plot_content_widget = QWidget()
+        self.plot_grid = QGridLayout(self.plot_content_widget)
         self.plot_grid.setHorizontalSpacing(12)
         self.plot_grid.setVerticalSpacing(12)
-        for index, channel in enumerate(self.config.eeg_channels):
-            card = PlotCard(channel.name, self.config.eeg_colors[index], self.config.eeg_plot_range_uv)
-            self.plot_cards.append(card)
-            self.eeg_plot_widgets.append(card)
+        self.plot_grid.setContentsMargins(2, 2, 8, 2)
+        self.plot_scroll_area.setWidget(self.plot_content_widget)
+        channel_canvas = ChannelStackCanvas(
+            self.config.eeg_channel_names,
+            self.config.eeg_colors,
+            self.config.eeg_plot_range_uv,
+            self.config.max_points,
+        )
+        self.eeg_channel_canvas = channel_canvas
+        self.eeg_plot_card = PlotCard(
+            "EEG Channels",
+            self.config.eeg_colors[0],
+            self.config.eeg_plot_range_uv,
+            canvas=channel_canvas,
+        )
+        self.plot_cards.append(self.eeg_plot_card)
         ppg_card = PlotCard("PPG (RED - LUX, bandpassed)", "#7c3aed", self.config.ppg_plot_range)
         self.plot_cards.append(ppg_card)
         self.ppg_plot_card = ppg_card
-        layout.addLayout(self.plot_grid, stretch=1)
+        layout.addWidget(self.plot_scroll_area, stretch=1)
         self._relayout_signal_area()
         return container
 
@@ -1874,7 +1907,6 @@ class ModernMuseWindow(QMainWindow):
 
     def _relayout_signal_area(self) -> None:
         signal_width = self.signal_area_widget.width() if hasattr(self, "signal_area_widget") else self.width()
-        signal_height = self.signal_area_widget.height() if hasattr(self, "signal_area_widget") else self.height()
         metric_width = max(1, signal_width)
         if metric_width >= 1180:
             metric_columns = 4
@@ -1889,39 +1921,18 @@ class ModernMuseWindow(QMainWindow):
             column = index % metric_columns
             self.metric_grid.addWidget(card, row, column)
 
-        plot_width = max(1, signal_width)
-        plot_columns = 2 if plot_width >= 760 else 1
         self._clear_layout(self.plot_grid)
-        for index, card in enumerate(self.eeg_plot_widgets):
-            row = index // plot_columns
-            column = index % plot_columns
-            self.plot_grid.addWidget(card, row, column)
-
+        if self.eeg_plot_card is not None:
+            eeg_card_height = max(420, len(self.config.eeg_channels) * 36 + 60)
+            self.eeg_plot_card.setFixedHeight(eeg_card_height)
+            self.plot_grid.addWidget(self.eeg_plot_card, 0, 0)
         if self.ppg_plot_card is not None:
-            ppg_row = (len(self.eeg_plot_widgets) + plot_columns - 1) // plot_columns
-            self.plot_grid.addWidget(self.ppg_plot_card, ppg_row, 0, 1, plot_columns)
-
-        metric_rows = (len(self.metric_card_widgets) + metric_columns - 1) // metric_columns
-        plot_rows = (len(self.eeg_plot_widgets) + plot_columns - 1) // plot_columns
-        if self.ppg_plot_card is not None:
-            plot_rows += 1
-        plot_card_height = self._clamp_int(
-            (
-                max(260, signal_height)
-                - metric_rows * self._clamp_int(82 * self._responsive_scale(), 76, 112)
-            )
-            / max(plot_rows, 1)
-            - 12,
-            84,
-            220,
-        )
-        for card in self.plot_cards:
-            card.setMinimumHeight(plot_card_height)
+            self.ppg_plot_card.setFixedHeight(self._clamp_int(156 * self._responsive_scale(), 136, 176))
+            self.plot_grid.addWidget(self.ppg_plot_card, 1, 0)
 
         for row in range(self.plot_grid.rowCount()):
-            self.plot_grid.setRowStretch(row, 1)
-        for col in range(self.plot_grid.columnCount()):
-            self.plot_grid.setColumnStretch(col, 1)
+            self.plot_grid.setRowStretch(row, 0)
+        self.plot_grid.setColumnStretch(0, 1)
 
     def _relayout_experiment_tab(self) -> None:
         if not hasattr(self, "experiment_cards_grid"):
@@ -2195,34 +2206,39 @@ class ModernMuseWindow(QMainWindow):
     def _open_device_dialog(self) -> None:
         if self.connection_busy:
             return
-        dialog = DeviceSelectionDialog(self.device_manager.scan_devices, self)
-        if dialog.exec() == DeviceSelectionDialog.DialogCode.Accepted and dialog.selected_device is not None:
-            self._connect_device_async(dialog.selected_device)
+        dialog = DeviceSelectionDialog(discover_eeg_streams, self)
+        if dialog.exec() == DeviceSelectionDialog.DialogCode.Accepted and dialog.selected_stream is not None:
+            self._connect_device_async(dialog.selected_stream)
 
-    def _connect_device_async(self, device: MuseDevice) -> None:
+    def _connect_device_async(self, stream: LSLStreamDescriptor) -> None:
         self.connection_busy = True
-        self._append_log(f"Connecting to {device.display_name}...")
-        threading.Thread(target=self._connect_worker, args=(device,), daemon=True).start()
+        self._append_log(f"Connecting to EEG stream {stream.display_name}...")
+        threading.Thread(target=self._connect_worker, args=(stream,), daemon=True).start()
 
-    def _connect_worker(self, device: MuseDevice) -> None:
+    def _connect_worker(self, stream: LSLStreamDescriptor) -> None:
         try:
+            if stream.channel_count < self.config.eeg_channel_count:
+                raise RuntimeError(
+                    f"Stream '{stream.name}' has {stream.channel_count} channels; "
+                    f"{self.config.eeg_channel_count} are required by the current configuration."
+                )
             self._disconnect_internal(save_recording=True)
-            self.device_manager.read_battery_percentage(device)
-            self.device_manager.connect(device, include_ppg=True)
-            time.sleep(self.config.device_warmup_seconds)
-            self.controller.start()
-            self.connect_completed.emit(device, None)
+            self.controller.start(stream_name=stream.name, source_id=stream.source_id)
+            self.connect_completed.emit(stream, None)
         except Exception as exc:
-            self.device_manager.disconnect()
+            self._disconnect_internal(save_recording=False)
             self.connect_completed.emit(None, str(exc))
 
-    def _finish_connect_device(self, device: MuseDevice | None, error: str | None) -> None:
+    def _finish_connect_device(self, stream: LSLStreamDescriptor | None, error: str | None) -> None:
         self.connection_busy = False
         if error:
+            if not self.controller.running:
+                self.connected_stream_name = None
             self._append_log(self._ui("connect_device_failed", error=error))
             return
-        if device is not None:
-            self._append_log(f"Connected to {device.display_name}")
+        if stream is not None:
+            self.connected_stream_name = stream.name
+            self._append_log(f"Connected to EEG stream {stream.display_name}")
 
     def _disconnect_async(self) -> None:
         if self.connection_busy:
@@ -2244,7 +2260,6 @@ class ModernMuseWindow(QMainWindow):
             saved_files = self.controller.stop_recording(save=save_recording)
         if self.controller.running or self.controller.eeg_inlet is not None or self.controller.ppg_inlet is not None:
             self.controller.stop(save=False)
-        self.device_manager.disconnect()
         return saved_files
 
     def _finish_disconnect_device(self, saved_files, error: str | None) -> None:
@@ -2252,6 +2267,7 @@ class ModernMuseWindow(QMainWindow):
         if error:
             self._append_log(self._ui("disconnect_device_failed", error=error))
             return
+        self.connected_stream_name = None
         if saved_files is None:
             self._append_log("Device disconnected.")
 
@@ -2374,7 +2390,6 @@ class ModernMuseWindow(QMainWindow):
 
     def _refresh_ui(self) -> None:
         status = self.controller.status()
-        current_device = self.device_manager.current_device
 
         self._set_badge_style(self.session_badge, active=status.running, accent="teal")
         self.session_badge.setText(self._ui("connected") if status.running else self._ui("disconnected"))
@@ -2382,46 +2397,47 @@ class ModernMuseWindow(QMainWindow):
         self.recording_badge.setText(self._ui("recording_on") if status.recording else self._ui("recording_off"))
 
         self.connect_button.setEnabled(not self.connection_busy)
-        self.disconnect_button.setEnabled((status.running or self.device_manager.is_connected()) and not self.connection_busy)
+        self.disconnect_button.setEnabled(status.running and not self.connection_busy)
         self.record_button.setEnabled(not self.connection_busy)
         self.record_button.setText(self._ui("stop_recording") if status.recording else self._ui("record_data"))
 
-        if current_device is None:
+        if self.connected_stream_name is None:
             self.device_label.setText(self._ui("selected_device_none"))
         else:
             prefix = self._ui("selected_device_none").split(":")[0]
-            self.device_label.setText(f"{prefix}: {current_device.display_name}")
+            self.device_label.setText(f"{prefix}: {self.connected_stream_name} (LSL)")
         self._set_stream_label(self.eeg_status_label, "EEG", status.eeg_connected)
         self._set_stream_label(self.ppg_status_label, "PPG", status.ppg_connected)
 
         with self.state.data_lock:
-            eeg_series = [list(buffer) for buffer in self.state.eeg_raw_buffers]
+            eeg_series = [list(buffer) for buffer in self.state.eeg_buffers]
             ppg_series = list(self.state.ppg_filtered_buffer)
             hr_series = list(self.state.heart_rate_buffer)
 
-        for index, values in enumerate(eeg_series):
-            display_values = values
-            if len(values) > 10:
-                try:
-                    display_values = list(
-                        filter_eeg_for_display(values, self.config.eeg_sampling_rate)
+        if self.tabs_widget.currentIndex() == 0:
+            viewport = self.plot_scroll_area.viewport()
+            viewport_rect = viewport.rect()
+            if self.eeg_plot_card is not None and self.eeg_channel_canvas is not None:
+                eeg_rect = self.eeg_plot_card.rect().translated(
+                    self.eeg_plot_card.mapTo(viewport, self.eeg_plot_card.rect().topLeft())
+                )
+                if eeg_rect.intersects(viewport_rect):
+                    self.eeg_channel_canvas.update_channels(eeg_series)
+
+            if self.ppg_plot_card is not None:
+                ppg_rect = self.ppg_plot_card.rect().translated(
+                    self.ppg_plot_card.mapTo(viewport, self.ppg_plot_card.rect().topLeft())
+                )
+                if ppg_rect.intersects(viewport_rect):
+                    self.ppg_plot_card.canvas.update_series(
+                        ppg_series,
+                        self.config.max_points,
+                        auto_scale=False,
+                        min_half_range=18.0,
                     )
-                except Exception as exc:
-                    self._append_log(f"EEG display filter fallback on {self.config.eeg_channels[index].name}: {exc}")
-            self.plot_cards[index].canvas.update_series(
-                display_values,
-                self.config.max_points,
-                auto_scale=False,
-            )
-        self.plot_cards[-1].canvas.update_series(
-            ppg_series,
-            self.config.max_points,
-            auto_scale=False,
-            min_half_range=18.0,
-        )
 
         bpm = hr_series[-1] if hr_series else estimate_hr_from_ppg(ppg_series, self.config.ppg_sampling_rate)
-        battery = self.controller.battery_percent or self.device_manager.current_battery_percent
+        battery = self.controller.battery_percent
         self.metric_cards["connection"].set_value(
             self._ui("metric_live") if status.running else self._ui("metric_offline"),
             self._ui("metric_stream_state"),
